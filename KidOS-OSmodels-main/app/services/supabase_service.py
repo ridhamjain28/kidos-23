@@ -28,7 +28,7 @@ class SupabaseMetrics:
         Logs behavioral metrics to Supabase.
         Metrics typically include engagement_time, frustration_time, etc.
         """
-        endpoint = f"{self.url}/rest/v1/behavior_metrics"
+        endpoint = f"{self.url}/rest/v1/iblm_signals"
         
         payload = {
             "user_id": user_id,
@@ -56,7 +56,7 @@ class SupabaseMetrics:
         """
         Fetches the most recent behavioral metrics for a user.
         """
-        endpoint = f"{self.url}/rest/v1/behavior_metrics"
+        endpoint = f"{self.url}/rest/v1/iblm_signals"
         params = {
             "user_id": f"eq.{user_id}",
             "order": "timestamp.desc",
@@ -67,7 +67,7 @@ class SupabaseMetrics:
             try:
                 resp = await client.get(endpoint, params=params, headers=self.headers)
                 if resp.status_code == 404:
-                    # Try fallback to interactions if behavior_metrics is missing
+                    # Try fallback to interactions if iblm_signals is missing
                     alt_endpoint = f"{self.url}/rest/v1/interactions"
                     params_alt = {
                         "user_id": f"eq.{user_id}",

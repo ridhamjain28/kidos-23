@@ -7,6 +7,7 @@ import asyncio
 from app.services.kernel import kernel_manager
 from app.services.memory import hot_memory, warm_memory
 from app.services.frustration import frustration_collector, RawSignal, compute_dopamine_penalty
+from app.services.supabase_service import supabase_metrics
 
 @dataclass
 class ModalityDecision:
@@ -145,6 +146,14 @@ class IBLMOrchestrator:
         # Micro-pause observer call
         if event_type in ["media_playing", "video_watch", "game_loading"]:
             await asyncio.create_task(self.call_gemma_observer(user_id))
+            
+        await supabase_metrics.log_metrics(user_id, {
+            "signal_type": "interaction",
+            "F_score": f_result.F,
+            "SVI_score": svi_result.SVI,
+            "action_taken": action,
+            "event_type": event_type
+        })
             
         return decision
 

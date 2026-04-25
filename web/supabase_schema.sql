@@ -113,30 +113,41 @@ CREATE POLICY "profiles_own"     ON user_profiles
 
 -- ──────────────────────────────────────────────────────────
 -- TABLE: iblm_kernels
--- Stores the JSON state of the IBLM kernel.
+-- Stores the state of the IBLM kernel with explicit columns.
 -- ──────────────────────────────────────────────────────────
+DROP TABLE IF EXISTS iblm_kernels;
 CREATE TABLE IF NOT EXISTS iblm_kernels (
-  user_id            UUID PRIMARY KEY,
-  kernel_data        JSONB NOT NULL DEFAULT '{}',
-  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+  user_id                     TEXT PRIMARY KEY,
+  curiosity_type              TEXT NOT NULL DEFAULT 'UNKNOWN',
+  attention_span_ms           INT NOT NULL DEFAULT 5000,
+  frustration_threshold       NUMERIC NOT NULL DEFAULT 0.65,
+  growth_projections          JSONB NOT NULL DEFAULT '{}',
+  rules                       JSONB NOT NULL DEFAULT '[]',
+  intervention_success_rate   NUMERIC NOT NULL DEFAULT 0.0,
+  intervention_count          INT NOT NULL DEFAULT 0,
+  successful_interventions    INT NOT NULL DEFAULT 0,
+  gamification_attempts       INT NOT NULL DEFAULT 0,
+  total_sessions              INT NOT NULL DEFAULT 0,
+  updated_at                  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- ──────────────────────────────────────────────────────────
--- TABLE: behavior_metrics
+-- TABLE: iblm_signals
 -- Stores real-time frustration F(t) and SVI(t) signals.
 -- ──────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS behavior_metrics (
+CREATE TABLE IF NOT EXISTS iblm_signals (
   id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id            TEXT NOT NULL,
-  engagement_time    NUMERIC,
-  frustration_score  NUMERIC,
-  svi                NUMERIC,
-  curiosity_type     TEXT,
+  signal_type        TEXT,
+  F_score            NUMERIC,
+  SVI_score          NUMERIC,
+  action_taken       TEXT,
+  event_type         TEXT,
   timestamp          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS ix_behavior_metrics_user_id ON behavior_metrics(user_id);
-CREATE INDEX IF NOT EXISTS ix_behavior_metrics_timestamp ON behavior_metrics(timestamp DESC);
+CREATE INDEX IF NOT EXISTS ix_iblm_signals_user_id ON iblm_signals(user_id);
+CREATE INDEX IF NOT EXISTS ix_iblm_signals_timestamp ON iblm_signals(timestamp DESC);
 
 -- ──────────────────────────────────────────────────────────
 -- TABLE: iblm_sessions

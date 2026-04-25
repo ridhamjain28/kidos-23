@@ -2,7 +2,7 @@ from dataclasses import dataclass, field, asdict
 import json
 import time
 import httpx
-from app.services.supabase_service import SUPABASE_URL, SUPABASE_KEY
+from app.services.supabase_service import supabase_metrics
 
 @dataclass
 class IBLMKernel:
@@ -21,68 +21,66 @@ class IBLMKernel:
 class KernelManager:
     def __init__(self):
         self._kernels = {}
-        self.headers = {
-            "apikey": SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": "application/json"
-        }
 
     async def get(self, user_id: str) -> IBLMKernel:
+        # 1. Check memory cache first
         if user_id in self._kernels:
             return self._kernels[user_id]
         
-        endpoint = f"{SUPABASE_URL}/rest/v1/iblm_kernels?user_id=eq.{user_id}"
+        endpoint = f"{supabase_metrics.url}/rest/v1/iblm_kernels?user_id=eq.{user_id}"
+        
         async with httpx.AsyncClient() as client:
             try:
-                resp = await client.get(endpoint, headers=self.headers)
+                resp = await client.get(endpoint, headers=supabase_metrics.headers)
                 if resp.status_code == 200:
                     data = resp.json()
                     if data and len(data) > 0:
-                        kernel_data = data[0].get("kernel_data", {})
+                        kernel_data = data[0]
+                        # Ensure user_id is set
                         kernel_data["user_id"] = user_id
-                        # Filter out keys not in dataclass
+                        # Remove any keys not part of IBLMKernel
                         valid_keys = {f.name for f in IBLMKernel.__dataclass_fields__.values()}
                         filtered_data = {k: v for k, v in kernel_data.items() if k in valid_keys}
+                        
                         kernel = IBLMKernel(**filtered_data)
                         self._kernels[user_id] = kernel
                         return kernel
             except Exception as e:
                 print(f"Error loading kernel from Supabase for {user_id}: {e}")
         
-        # Create new if not found
+        # 2. Not found or error -> create new default, save to DB, and cache
         kernel = IBLMKernel(user_id=user_id)
         self._kernels[user_id] = kernel
+        # Async fire-and-forget save of the new default row
+        await self._upsert_to_supabase(kernel)
         return kernel
 
     async def save(self, user_id: str):
         kernel = await self.get(user_id)
-        endpoint = f"{SUPABASE_URL}/rest/v1/iblm_kernels"
+        await self._upsert_to_supabase(kernel)
+
+    async def _upsert_to_supabase(self, kernel: IBLMKernel):
+        endpoint = f"{supabase_metrics.url}/rest/v1/iblm_kernels"
         
-        payload = {
-            "user_id": user_id,
-            "kernel_data": asdict(kernel),
-            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        }
+        payload = asdict(kernel)
+        payload["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         
-        headers = {**self.headers, "Prefer": "resolution=merge-duplicates"}
+        headers = {**supabase_metrics.headers, "Prefer": "resolution=merge-duplicates"}
         async with httpx.AsyncClient() as client:
             try:
                 await client.post(endpoint, json=payload, headers=headers)
             except Exception as e:
-                print(f"Error saving kernel to Supabase for {user_id}: {e}")
+                print(f"Error saving kernel to Supabase for {kernel.user_id}: {e}")
 
     async def add_rule(self, user_id, category, condition, action, weight=0.5):
         kernel = await self.get(user_id)
-        # Check for existing matching rule
         for rule in kernel.rules:
             if (rule.get("category") == category and 
                 rule.get("condition") == condition and 
                 rule.get("action") == action):
-                # Strengthen weight by 0.1
                 rule["weight"] = min(1.0, rule.get("weight", 0.5) + 0.1)
                 return
         
-        # Else append new rule
         kernel.rules.append({
             "category": category,
             "condition": condition,
@@ -97,11 +95,9 @@ class KernelManager:
         new_rules = []
         for rule in kernel.rules:
             rule["weight"] = rule.get("weight", 0.5) * decay_factor
-            # Prune if weight < 0.05
             if rule["weight"] >= 0.05:
                 new_rules.append(rule)
         
-        # Keep max 40 rules, sorted by weight
         new_rules.sort(key=lambda x: x["weight"], reverse=True)
         kernel.rules = new_rules[:40]
 
@@ -114,7 +110,6 @@ class KernelManager:
         if kernel.intervention_count > 0:
             kernel.intervention_success_rate = kernel.successful_interventions / kernel.intervention_count
         
-        # Adjust threshold based on success rate
         if kernel.intervention_success_rate > 0.7:
             kernel.frustration_threshold = max(0.1, round(kernel.frustration_threshold - 0.05, 2))
         elif kernel.intervention_success_rate < 0.3:

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadKernel, extractSignals, applySignalsToKernel, saveKernel } from '@/lib/iblm';
 
 /**
  * POST /api/iblm/orchestrate
- * Orchestrates background behavioral signal extraction and kernel updates.
+ * Orchestrates background behavioral signal extraction and kernel updates by forwarding to the Python IBLM backend.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -13,23 +12,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Interaction data is required' }, { status: 400 });
     }
 
-    // 1. Load the user's Cold Memory (The Kernel)
-    const kernel = await loadKernel(interaction.user_id);
+    const backendUrl = process.env.IBLM_BACKEND_URL || 'http://localhost:8001';
 
-    // 2. Extract signals using the lightweight model (Step 2)
-    const signals = await extractSignals(interaction, kernel);
+    const payload = {
+      user_id: interaction.user_id,
+      event_type: interaction.action,
+      signals: [
+        { type: "skip", value: interaction.duration_seconds < 5 ? 500 : 5000 },
+      ],
+      user_text: interaction.user_text || null,
+      content_id: interaction.content_id || null
+    };
 
-    if (signals.length > 0) {
-      // 3. Apply signals to the kernel with belief pruning (Step 3)
-      const updatedKernel = applySignalsToKernel(kernel, signals);
+    const res = await fetch(`${backendUrl}/iblm/interact`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    });
 
-      // 4. Save the updated Kernel
-      await saveKernel(updatedKernel);
-
-      return NextResponse.json({ ok: true, signals_processed: signals.length, kernel_updated: true });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Backend error: ${res.status} ${errText}`);
     }
 
-    return NextResponse.json({ ok: true, signals_processed: 0, kernel_updated: false });
+    const data = await res.json();
+    return NextResponse.json(data);
+
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('[/api/iblm/orchestrate]', err);
