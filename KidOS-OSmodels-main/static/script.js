@@ -3,18 +3,113 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const $ = (sel) => document.querySelector(sel);
-const chatContainer = $("#chat-container");
-const messagesEl = $("#messages");
-const nexusView = $("#nexus-view");
-const form = $("#chat-form");
-const input = $("#user-input");
-const sendBtn = $("#send-btn");
+let chatContainer, messagesEl, nexusView, form, input, sendBtn;
+let tabButtons, viewPanels;
+let factGenerateBtn, factFeedScroll, factFeedEmpty;
+let libraryGenerateBtn, libraryShelf;
+let bookReaderOverlay, bookReaderTitle, bookPageImg, bookPageText, bookPrevBtn, bookNextBtn, bookSpeakBtn;
+let wtvGenerateBtn, wtvFeed, wtvPlayer, wtvSceneImg, wtvSubtitle, wtvProgress;
+let gamePlayer, gamePlayerTitle, gameContent, gameTutorialBox, gameTutorialText;
 
 // ── App Startup removed ──────────────────────────────────────────────────
 
-// ── Tab Switching ────────────────────────────────────────────────────────
-const tabButtons = document.querySelectorAll(".nav-tab");
-const viewPanels = document.querySelectorAll(".view-panel");
+document.addEventListener("DOMContentLoaded", () => {
+    // --- Element Assignments ---
+    chatContainer = $("#chat-container");
+    messagesEl = $("#messages");
+    nexusView = $("#nexus-view");
+    form = $("#chat-form");
+    input = $("#user-input");
+    sendBtn = $("#send-btn");
+    tabButtons = document.querySelectorAll(".nav-tab");
+    viewPanels = document.querySelectorAll(".view-panel");
+    factGenerateBtn = $("#fact-generate-btn");
+    factFeedScroll = $("#fact-feed-scroll");
+    factFeedEmpty = $("#fact-feed-empty");
+    libraryGenerateBtn = $("#library-generate-btn");
+    libraryShelf = $("#library-shelf");
+    bookReaderOverlay = $("#book-reader");
+    bookReaderTitle = $("#book-reader-title");
+    bookPageImg = $("#book-page-img")?.querySelector("img");
+    bookPageText = $("#book-page-text");
+    bookPrevBtn = $("#book-prev");
+    bookNextBtn = $("#book-next");
+    bookSpeakBtn = $("#book-speak-btn");
+    wtvGenerateBtn = $("#wtv-generate-btn");
+    wtvFeed = $("#wtv-feed");
+    wtvPlayer = $("#wtv-player");
+    wtvSceneImg = $("#wtv-scene-img");
+    wtvSubtitle = $("#wtv-subtitle");
+    wtvProgress = $("#wtv-progress-fill");
+    gamePlayer = $("#game-player");
+    gamePlayerTitle = $("#game-player-title");
+    gameContent = $("#game-content");
+    gameTutorialBox = $("#game-tutorial-box");
+    gameTutorialText = $("#game-tutorial-text");
+
+    // --- Tab Switching ---
+    tabButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const targetTab = btn.dataset.tab;
+            console.log("Switching to tab:", targetTab);
+            tabButtons.forEach((b) => b.classList.remove("active"));
+            btn.classList.add("active");
+            viewPanels.forEach((panel) => {
+                panel.classList.toggle("active", panel.id === TAB_MAP[targetTab]);
+            });
+        });
+    });
+
+    // --- Other Listeners ---
+    initNexusListeners();
+    initFactListeners();
+    initLibraryListeners();
+    initWtvListeners();
+    initGameListeners();
+    
+    console.log("KidOS Main UI: Initialization Complete.");
+    fetch("/iblm/session/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: "550e8400-e29b-41d4-a716-446655440000" })
+    }).catch(() => null);
+});
+
+function initNexusListeners() {
+    form?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const text = input.value.trim();
+        if (!text) return;
+        nexusView.classList.add("active-chat");
+        appendMessage("user", text);
+        input.value = "";
+        sendBtn.disabled = true;
+        const loadingEl = appendLoading();
+        try {
+            const res = await fetch("/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: text }),
+            });
+            const data = await res.json();
+            loadingEl.remove();
+            if (data.type === "image") appendImage(data.content, data.caption);
+            else if (data.type === "error") appendMessage("ai", data.content, true);
+            else appendMessage("ai", data.content);
+        } catch (err) {
+            loadingEl.remove();
+            appendMessage("ai", "Lost connection to Nexus.", true);
+        }
+        sendBtn.disabled = false;
+    });
+
+    document.querySelectorAll(".welcome-card").forEach((card) => {
+        card.addEventListener("click", () => {
+            input.value = card.dataset.prompt;
+            form.dispatchEvent(new Event("submit"));
+        });
+    });
+}
 
 const TAB_MAP = {
   "home": "home-view",
@@ -25,73 +120,16 @@ const TAB_MAP = {
   "games": "games-view",
 };
 
-tabButtons.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const targetTab = btn.dataset.tab;
-    tabButtons.forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-    viewPanels.forEach((panel) => {
-      panel.classList.toggle("active", panel.id === TAB_MAP[targetTab]);
-    });
-  });
-});
-
-// ── Nexus AI logic ───────────────────────────────────────────────────────
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const text = input.value.trim();
-  if (!text) return;
-
-  // Switch to chat mode
-  nexusView.classList.add("active-chat");
-
-  appendMessage("user", text);
-  input.value = "";
-  sendBtn.disabled = true;
-
-  const loadingEl = appendLoading();
-
-  try {
-    const res = await fetch("/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
-    });
-    const data = await res.json();
-    loadingEl.remove();
-
-    if (data.type === "image") {
-      appendImage(data.content, data.caption);
-    } else if (data.type === "error") {
-      appendMessage("ai", data.content, true);
-    } else {
-      appendMessage("ai", data.content);
-    }
-  } catch (err) {
-    loadingEl.remove();
-    appendMessage("ai", "Lost connection to Nexus. Is the server running?", true);
-  }
-});
-
-// Welcome card shortcuts
-document.querySelectorAll(".welcome-card").forEach((card) => {
-  card.addEventListener("click", () => {
-    input.value = card.dataset.prompt;
-    form.dispatchEvent(new Event("submit"));
-  });
-});
-
 // ── Fact Feed Engine ─────────────────────────────────────────────────────
-const factGenerateBtn = $("#fact-generate-btn");
-const factFeedScroll = $("#fact-feed-scroll");
-const factFeedEmpty = $("#fact-feed-empty");
 let factCount = 0;
 let isGenerating = false;
 
-factGenerateBtn.addEventListener("click", () => {
-  if (isGenerating) return;
-  generateFactBatch(3);
-});
+function initFactListeners() {
+    factGenerateBtn?.addEventListener("click", () => {
+        if (isGenerating) return;
+        generateFactBatch(3);
+    });
+}
 
 async function generateFactBatch(count) {
   isGenerating = true;
@@ -156,45 +194,50 @@ function replaceWithErrorCard(card, message) {
 }
 
 // ── Library Engine ───────────────────────────────────────────────────────
-const libraryGenerateBtn = $("#library-generate-btn");
-const libraryShelf = $("#library-shelf");
 const generatedBooks = [];
 let isGeneratingBook = false;
 
-libraryGenerateBtn.addEventListener("click", async () => {
-  if (isGeneratingBook) return;
-  isGeneratingBook = true;
-  libraryGenerateBtn.disabled = true;
-  libraryGenerateBtn.innerHTML = "Writing Story...";
+function initLibraryListeners() {
+    libraryGenerateBtn?.addEventListener("click", async () => {
+        if (isGeneratingBook) return;
+        isGeneratingBook = true;
+        libraryGenerateBtn.disabled = true;
+        libraryGenerateBtn.innerHTML = "Writing Story...";
 
-  const placeholder = document.createElement("div");
-  placeholder.className = "book-cover-card";
-  placeholder.innerHTML = `<div style="height:100%; display:flex; align-items:center; justify-content:center;"><div style="width:30px; height:30px; border:3px solid var(--aurora-cyan); border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite;"></div></div>`;
-  libraryShelf.appendChild(placeholder);
+        const placeholder = document.createElement("div");
+        placeholder.className = "book-cover-card";
+        placeholder.innerHTML = `<div style="height:100%; display:flex; align-items:center; justify-content:center;"><div style="width:30px; height:30px; border:3px solid var(--aurora-cyan); border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite;"></div></div>`;
+        libraryShelf.appendChild(placeholder);
 
-  try {
-    const res = await fetch("/library/generate", { method: "POST" });
-    const data = await res.json();
-    if (data.status === "success") {
-      const bookIndex = generatedBooks.length;
-      generatedBooks.push(data);
-      placeholder.innerHTML = `
-        <img class="book-cover-img" src="${data.cover}" alt="Book" />
-        <div class="book-cover-label">${data.title}</div>
-      `;
-      placeholder.addEventListener("click", () => openBook(bookIndex));
-      sendIblmTelemetry("library_creation", [{ type: "engagement", value: 3 }], ["Literacy", "Creation"]);
-    } else {
-      placeholder.innerHTML = `<div style="padding:10px; font-size:10px; color:#f87171;">Failed to write.</div>`;
-    }
-  } catch (err) {
-    placeholder.innerHTML = `<div style="padding:10px; font-size:10px; color:#f87171;">Connection error.</div>`;
-  }
+        try {
+            const res = await fetch("/library/generate", { method: "POST" });
+            const data = await res.json();
+            if (data.status === "success") {
+                const bookIndex = generatedBooks.length;
+                generatedBooks.push(data);
+                placeholder.innerHTML = `
+                    <img class="book-cover-img" src="${data.cover}" alt="Book" />
+                    <div class="book-cover-label">${data.title}</div>
+                `;
+                placeholder.addEventListener("click", () => openBook(bookIndex));
+                sendIblmTelemetry("library_creation", [{ type: "engagement", value: 3 }], ["Literacy", "Creation"]);
+            } else {
+                placeholder.innerHTML = `<div style="padding:10px; font-size:10px; color:#f87171;">Failed to write.</div>`;
+            }
+        } catch (err) {
+            placeholder.innerHTML = `<div style="padding:10px; font-size:10px; color:#f87171;">Connection error.</div>`;
+        }
 
-  libraryGenerateBtn.innerHTML = "Write a New Story";
-  libraryGenerateBtn.disabled = false;
-  isGeneratingBook = false;
-});
+        libraryGenerateBtn.innerHTML = "Write a New Story";
+        libraryGenerateBtn.disabled = false;
+        isGeneratingBook = false;
+    });
+
+    $("#book-reader-close")?.addEventListener("click", () => bookReaderOverlay.classList.remove("open"));
+    bookPrevBtn?.addEventListener("click", () => { if (currentBook && currentPage > 0) { currentPage--; renderBookPage(); } });
+    bookNextBtn?.addEventListener("click", () => { if (currentBook && currentPage < currentBook.pages.length - 1) { currentPage++; renderBookPage(); } });
+    bookSpeakBtn?.addEventListener("click", () => { if (currentBook) speakText(currentBook.pages[currentPage].text, bookSpeakBtn); });
+}
 
 // ── Book Reader ──────────────────────────────────────────────────────────
 const bookReaderOverlay = $("#book-reader");
@@ -229,37 +272,68 @@ $("#book-reader-close").addEventListener("click", () => bookReaderOverlay.classL
 bookSpeakBtn.addEventListener("click", () => speakText(currentBook.pages[currentPage].text, bookSpeakBtn));
 
 // ── WonderTV Engine ──────────────────────────────────────────────────────
-const wtvGenerateBtn = $("#wtv-generate-btn");
-const wtvFeed = $("#wtv-feed");
-const wtvPlayer = $("#wtv-player");
-const wtvSceneImg = $("#wtv-scene-img");
-const wtvSubtitle = $("#wtv-subtitle");
-const wtvProgress = $("#wtv-progress-fill");
+function initWtvListeners() {
+    wtvGenerateBtn?.addEventListener("click", async () => {
+        wtvGenerateBtn.disabled = true;
+        wtvGenerateBtn.innerHTML = "Refreshing...";
+        wtvFeed.innerHTML = "";
+        try {
+            const res = await fetch("/wondertv/generate-feed", { method: "POST" });
+            const data = await res.json();
+            if (data.status === "success") {
+                data.feed.forEach(item => {
+                    const card = document.createElement("div");
+                    card.className = "book-cover-card";
+                    card.style.aspectRatio = "16/9";
+                    card.innerHTML = `
+                        <img src="${item.thumbnail}" style="width:100%; height:100%; object-fit:cover;">
+                        <div class="book-cover-label" style="font-size:14px;">${item.title}</div>
+                    `;
+                    card.addEventListener("click", () => playVideo(item.title, item.description));
+                    wtvFeed.appendChild(card);
+                });
+            }
+        } catch (err) {}
+        wtvGenerateBtn.disabled = false;
+        wtvGenerateBtn.innerHTML = "Refresh Channel";
+    });
 
-wtvGenerateBtn.addEventListener("click", async () => {
-  wtvGenerateBtn.disabled = true;
-  wtvGenerateBtn.innerHTML = "Refreshing...";
-  wtvFeed.innerHTML = "";
-  try {
-    const res = await fetch("/wondertv/generate-feed", { method: "POST" });
-    const data = await res.json();
-    if (data.status === "success") {
-      data.feed.forEach(item => {
-        const card = document.createElement("div");
-        card.className = "book-cover-card";
-        card.style.aspectRatio = "16/9";
-        card.innerHTML = `
-          <img src="${item.thumbnail}" style="width:100%; height:100%; object-fit:cover;">
-          <div class="book-cover-label" style="font-size:14px;">${item.title}</div>
-        `;
-        card.addEventListener("click", () => playVideo(item.title, item.description));
-        wtvFeed.appendChild(card);
-      });
-    }
-  } catch (err) {}
-  wtvGenerateBtn.disabled = false;
-  wtvGenerateBtn.innerHTML = "Refresh Channel";
-});
+    $("#wtv-play-pause-btn")?.addEventListener("click", () => {
+        isPaused = !isPaused;
+        $("#wtv-play-pause-btn").innerHTML = isPaused ? "▶️ Play" : "⏸️ Pause";
+        sendIblmTelemetry(isPaused ? "pause" : "play", [{ type: "engagement", value: isPaused ? -0.5 : 1 }], currentVideoTags);
+    });
+
+    $("#wtv-back-btn")?.addEventListener("click", () => {
+        currentSceneIndex = Math.max(0, currentSceneIndex - 1);
+        sceneJumpTriggered = true;
+        sendIblmTelemetry("back_5s", [{ type: "engagement", value: 0.5 }], currentVideoTags);
+    });
+
+    $("#wtv-forward-btn")?.addEventListener("click", () => {
+        currentSceneIndex = currentSceneIndex + 1;
+        sceneJumpTriggered = true;
+        sendIblmTelemetry("forward_5s", [{ type: "engagement", value: 0.5 }], currentVideoTags);
+    });
+
+    $("#wtv-skip-btn")?.addEventListener("click", () => {
+        isSkipped = true;
+        sendIblmTelemetry("skip", [{ type: "frustration", value: 2 }, { type: "engagement", value: -1 }], currentVideoTags);
+    });
+
+    $("#wtv-speed-btn")?.addEventListener("click", () => {
+        if (currentSpeed === 1.0) currentSpeed = 1.5;
+        else if (currentSpeed === 1.5) currentSpeed = 2.0;
+        else currentSpeed = 1.0;
+        $("#wtv-speed-btn").innerHTML = `⚡ Speed: ${currentSpeed}x`;
+        sendIblmTelemetry("speed_change", [{ type: "engagement", value: 1 }], currentVideoTags);
+    });
+
+    $("#wtv-player-close")?.addEventListener("click", () => {
+        wtvPlayer.classList.remove("open");
+        isPaused = false;
+    });
+}
 // --- IBLM Telemetry Helper ---
 function sendIblmTelemetry(eventType, signals, tags) {
     fetch("/iblm/interact", {
@@ -459,81 +533,79 @@ function appendImage(src, caption) {
   chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
-// ── Games Logic ──────────────────────────────────────────────────────────
-const gamePlayer = $("#game-player");
-const gamePlayerTitle = $("#game-player-title");
-const gameContent = $("#game-content");
-const gameTutorialBox = $("#game-tutorial-box");
-const gameTutorialText = $("#game-tutorial-text");
+function initGameListeners() {
+    document.querySelectorAll(".game-card").forEach(card => {
+        card.addEventListener("click", async () => {
+            const gameType = card.dataset.game;
+            const title = card.querySelector("h3").innerText;
+            console.log("Starting game:", title);
+            
+            gamePlayerTitle.innerText = title;
+            gamePlayer.classList.add("open");
+            
+            gameTutorialBox.style.display = "block";
+            gameTutorialText.innerText = "Nexus is preparing your game and tutorial...";
+            
+            const tutorials = {
+                "chess": "Move your pieces to capture the king! Pawns go forward, Knights jump in L-shapes, and Queens move everywhere.",
+                "memory": "Flip the cards to find matching pairs! Remember where the items are to win.",
+                "painting": "Use your brush to create a masterpiece! Every color tells a story.",
+                "puzzles": "Fit the pieces together to reveal the hidden picture. Start with the corners!"
+            };
 
-document.querySelectorAll(".game-card").forEach(card => {
-  card.addEventListener("click", async () => {
-    const gameType = card.dataset.game;
-    const title = card.querySelector("h3").innerText;
-    
-    gamePlayerTitle.innerText = title;
-    gamePlayer.classList.add("open");
-    
-    gameTutorialBox.style.display = "block";
-    gameTutorialText.innerText = "Nexus is preparing your game and tutorial...";
-    
-    // Static Tutorial Content (No AI)
-    const tutorials = {
-      "chess": "Move your pieces to capture the king! Pawns go forward, Knights jump in L-shapes, and Queens move everywhere.",
-      "memory": "Flip the cards to find matching pairs! Remember where the items are to win.",
-      "painting": "Use your brush to create a masterpiece! Every color tells a story.",
-      "puzzles": "Fit the pieces together to reveal the hidden picture. Start with the corners!"
-    };
+            gameTutorialText.innerText = tutorials[gameType] || "Have fun playing this game!";
+            speakText(gameTutorialText.innerText);
 
-    gameTutorialText.innerText = tutorials[gameType] || "Have fun playing this game!";
-    speakText(gameTutorialText.innerText);
+            if (gameType === "chess") {
+                const pieces = {
+                    0: '♜', 1: '♞', 2: '♝', 3: '♛', 4: '♚', 5: '♝', 6: '♞', 7: '♜',
+                    8: '♟', 9: '♟', 10: '♟', 11: '♟', 12: '♟', 13: '♟', 14: '♟', 15: '♟',
+                    48: '♙', 49: '♙', 50: '♙', 51: '♙', 52: '♙', 53: '♙', 54: '♙', 55: '♙',
+                    56: '♖', 57: '♘', 58: '♗', 59: '♕', 60: '♔', 61: '♗', 62: '♘', 63: '♖'
+                };
+                gameContent.innerHTML = `
+                    <div style="display:grid; grid-template-columns:repeat(8, 1fr); width:100%; max-width:500px; aspect-ratio:1/1; border:8px solid #374151; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+                        ${Array(64).fill(0).map((_, i) => {
+                            const row = Math.floor(i / 8);
+                            const col = i % 8;
+                            const isBlack = (row + col) % 2 === 1;
+                            const pieceColor = row < 2 ? '#1e293b' : '#f8fafc';
+                            return `
+                                <div style="background:${isBlack ? '#4b5563' : '#e5e7eb'}; display:flex; align-items:center; justify-content:center; font-size:40px; color:${pieceColor}; cursor:pointer; transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                                    ${pieces[i] || ''}
+                                </div>`;
+                        }).join('')}
+                    </div>
+                `;
+            } else if (gameType === "memory") {
+                const items = ['🍎', '🍌', '🍇', '🍓', '🍒', '🍍', '🥝', '🍉'];
+                const board = [...items, ...items].sort(() => Math.random() - 0.5);
+                gameContent.innerHTML = `
+                    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:15px; width:100%; max-width:500px;">
+                        ${board.map(emoji => `
+                            <div style="aspect-ratio:1/1; background:rgba(255,255,255,0.1); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:40px; cursor:pointer; border:1px solid var(--border-glass);" onclick="this.style.background='var(--aurora-cyan)'; this.innerText='${emoji}'">
+                                ❓
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                gameContent.innerHTML = `
+                    <div style="text-align:center; color:var(--text-primary);">
+                        <div style="font-size:120px; margin-bottom:20px; filter:drop-shadow(0 0 20px var(--aurora-cyan));">${card.querySelector('div').innerText}</div>
+                        <h2 style="font-size:32px; font-weight:800;">${title}</h2>
+                        <p style="opacity:0.7; margin-top:10px;">Offline Sandbox Mode Active</p>
+                    </div>
+                `;
+            }
+            sendIblmTelemetry("game_start", [{ type: "engagement", value: 2 }], ["Gaming", gameType]);
+        });
+    });
 
-    // Render static game content
-    if (gameType === "chess") {
-      const pieces = {
-        0: '♜', 1: '♞', 2: '♝', 3: '♛', 4: '♚', 5: '♝', 6: '♞', 7: '♜',
-        8: '♟', 9: '♟', 10: '♟', 11: '♟', 12: '♟', 13: '♟', 14: '♟', 15: '♟',
-        48: '♙', 49: '♙', 50: '♙', 51: '♙', 52: '♙', 53: '♙', 54: '♙', 55: '♙',
-        56: '♖', 57: '♘', 58: '♗', 59: '♕', 60: '♔', 61: '♗', 62: '♘', 63: '♖'
-      };
-      gameContent.innerHTML = `
-        <div style="display:grid; grid-template-columns:repeat(8, 1fr); width:100%; max-width:500px; aspect-ratio:1/1; border:8px solid #374151; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
-          ${Array(64).fill(0).map((_, i) => {
-            const row = Math.floor(i / 8);
-            const col = i % 8;
-            const isBlack = (row + col) % 2 === 1;
-            return `
-              <div style="background:${isBlack ? '#4b5563' : '#e5e7eb'}; display:flex; align-items:center; justify-content:center; font-size:40px; color:${row < 2 ? '#000' : '#fff'}; cursor:pointer; transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-                ${pieces[i] || ''}
-              </div>`;
-          }).join('')}
-        </div>
-      `;
-    } else if (gameType === "memory") {
-        const items = ['🍎', '🍌', '🍇', '🍓', '🍒', '🍍', '🥝', '🍉'];
-        const board = [...items, ...items].sort(() => Math.random() - 0.5);
-        gameContent.innerHTML = `
-          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:15px; width:100%; max-width:500px;">
-            ${board.map(emoji => `
-              <div style="aspect-ratio:1/1; background:rgba(255,255,255,0.1); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:40px; cursor:pointer; border:1px solid var(--border-glass);" onclick="this.style.background='var(--aurora-cyan)'; this.innerText='${emoji}'">
-                ❓
-              </div>
-            `).join('')}
-          </div>
-        `;
-    } else {
-      gameContent.innerHTML = `
-        <div style="text-align:center; color:var(--text-primary);">
-           <div style="font-size:120px; margin-bottom:20px; filter:drop-shadow(0 0 20px var(--aurora-cyan));">${card.querySelector('div').innerText}</div>
-           <h2 style="font-size:32px; font-weight:800;">${title}</h2>
-           <p style="opacity:0.7; margin-top:10px;">Offline Sandbox Mode Active</p>
-        </div>
-      `;
-    }
-    
-    sendIblmTelemetry("game_start", [{ type: "engagement", value: 2 }], ["Gaming", gameType]);
-  });
-});
+    $("#game-player-close")?.addEventListener("click", () => {
+        gamePlayer.classList.remove("open");
+    });
+}
 
 $("#game-player-close")?.addEventListener("click", () => {
     gamePlayer.classList.remove("open");
