@@ -149,10 +149,26 @@ synthesizeBtn.onclick = async () => {
     
     try {
         const start = Date.now();
+        const userId = "550e8400-e29b-41d4-a716-446655440000";
+        
+        // 1. Fetch IBLM Kernel for grounding
+        const kernelRes = await fetch(`/iblm/kernel/${userId}`).catch(() => null);
+        const kernel = kernelRes && kernelRes.ok ? await kernelRes.json() : null;
+
+        // 2. Build Mission Briefing
+        const mission_briefing = kernel ? 
+            `Child profile: curiosity_type=${kernel.curiosity_type}, frustration_threshold=${kernel.frustration_threshold}, sessions=${kernel.total_sessions}. Top rules: ${JSON.stringify((kernel.rules || []).slice(0, 3))}. Growth: ${JSON.stringify(kernel.growth_projections || {})}` 
+            : '';
+
+        // 3. Generate Cards with Intelligence Grounding
         const res = await fetch('/cognicards/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ topTags })
+            body: JSON.stringify({ 
+                topTags,
+                user_id: userId,
+                mission_briefing
+            })
         });
         const data = await res.json();
         
