@@ -26,6 +26,40 @@ COMFYUI_PROMPT_EP = f"{COMFYUI_URL}/prompt"
 COMFYUI_HISTORY_EP = f"{COMFYUI_URL}/history"
 COMFYUI_VIEW_EP = f"{COMFYUI_URL}/view"
 
+# ── Content Generation Prompts ──────────────────────────────────────────────
+FACT_SYSTEM_PROMPT = (
+    "You are a fascinating fact generator for children. "
+    "Generate ONE truly surprising, mind-blowing, and short fact. "
+    "The fact MUST be under 25 words. No preamble, just the fact."
+)
+
+IMAGE_PROMPT_SYSTEM = (
+    "You are a Stable Diffusion prompt engineer. Given a fact, generate a "
+    "SHORT, vivid image generation prompt (under 30 words) for a beautiful "
+    "vertical background image. No text in the image."
+)
+
+STORY_SYSTEM_PROMPT = (
+    "You are a children's story author. Generate a story with EXACTLY 5 pages. "
+    "Output ONLY valid JSON in this format: "
+    '{"title":"Title","pages":[{"text":"Page 1..."}, {"text":"Page 2..."}, ...]}'
+)
+
+ILLUSTRATION_SYSTEM = (
+    "You are an illustration prompt engineer. Given a story page, generate a "
+    "SHORT image prompt for a whimsical child-friendly illustration."
+)
+
+FEED_IDEAS_SYSTEM = (
+    "Generate EXACTLY 4 unique video ideas for kids. Output ONLY valid JSON: "
+    '[{"title":"Video Title","description":"..."}, ...]'
+)
+
+VIDEO_SCRIPT_SYSTEM = (
+    "Write an EXACTLY 6-scene narration script. Output ONLY valid JSON: "
+    '[{"narration":"Scene 1..."}, ...]'
+)
+
 WORKFLOW_PATH = Path(__file__).parent / "workflows" / "comfy_workflow.json"
 
 IMAGE_KEYWORDS = [
@@ -220,7 +254,109 @@ async def cognicards_generate(request: Request):
         print(f"Cognicards generation error: {e}")
         return JSONResponse(get_filtered_fallback(top_tags))
 
+# ── Missing Content Routes ──────────────────────────────────────────────────
+
+@app.post("/fact-feed/generate")
+async def generate_fact():
+    """Generate a random fact with an AI-generated background image."""
+    try:
+        fact = await query_ollama(f"Generate a surprising fact. System: {FACT_SYSTEM_PROMPT}")
+        img_prompt = await query_ollama(f"Generate an image prompt for this fact: {fact}. System: {IMAGE_PROMPT_SYSTEM}")
+        
+        # 9:16 vertical image
+        image_data = await query_comfyui(img_prompt)
+        
+        return {
+            "status": "success",
+            "fact": fact,
+            "image": image_data
+        }
+    except Exception as e:
+        print(f"Fact Feed Error: {e}")
+        return {"status": "error", "message": str(e)}
+
+@app.post("/library/generate")
+async def generate_book():
+    """Generate a complete children's story book with illustrations."""
+    try:
+        raw_story = await query_ollama(f"Write a magical story. System: {STORY_SYSTEM_PROMPT}")
+        # Extract JSON
+        match = re.search(r'\{.*\}', raw_story, re.DOTALL)
+        story = json.loads(match.group(0))
+        
+        title = story.get("title", "Untitled")
+        pages = story.get("pages", [])
+        
+        # Cover
+        cover_prompt = await query_ollama(f"Prompt for cover of '{title}'. System: {ILLUSTRATION_SYSTEM}")
+        cover_image = await query_comfyui(cover_prompt)
+        
+        illustrated_pages = []
+        for page in pages[:5]:
+            p_text = page.get("text", "")
+            p_prompt = await query_ollama(f"Illustration for: {p_text}. System: {ILLUSTRATION_SYSTEM}")
+            p_image = await query_comfyui(p_prompt)
+            illustrated_pages.append({"text": p_text, "image": p_image})
+            
+        return {
+            "status": "success",
+            "title": title,
+            "cover": cover_image,
+            "pages": illustrated_pages
+        }
+    except Exception as e:
+        print(f"Library Error: {e}")
+        return {"status": "error", "message": str(e)}
+
+@app.post("/wondertv/generate-feed")
+async def generate_wtv_feed():
+    try:
+        raw_ideas = await query_ollama(f"4 video ideas. System: {FEED_IDEAS_SYSTEM}")
+        match = re.search(r'\[.*\]', raw_ideas, re.DOTALL)
+        ideas = json.loads(match.group(0))
+        
+        feed = []
+        for idea in ideas[:4]:
+            title = idea.get("title", "Video")
+            thumb_prompt = await query_ollama(f"Thumbnail for {title}. System: {IMAGE_PROMPT_SYSTEM}")
+            thumb = await query_comfyui(thumb_prompt)
+            feed.append({"title": title, "description": idea.get("description", ""), "thumbnail": thumb})
+            
+        return {"status": "success", "feed": feed}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/wondertv/watch")
+async def wtv_watch(request: Request):
+    body = await request.json()
+    title = body.get("title", "Video")
+    try:
+        raw_script = await query_ollama(f"6-scene script for {title}. System: {VIDEO_SCRIPT_SYSTEM}")
+        match = re.search(r'\[.*\]', raw_script, re.DOTALL)
+        scenes_text = json.loads(match.group(0))
+        
+        scenes = []
+        for s in scenes_text[:6]:
+            narr = s.get("narration", "")
+            s_prompt = await query_ollama(f"Scene image for: {narr}. System: {IMAGE_PROMPT_SYSTEM}")
+            s_img = await query_comfyui(s_prompt)
+            scenes.append({"narration": narr, "image": s_img})
+            
+        return {"status": "success", "scenes": scenes}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/speak")
+async def speak(request: Request):
+    # Mock speak for now as we don't have a local TTS tool ready in this script
+    return {"status": "success", "message": "Speech simulated"}
+
 # ── Routes ──────────────────────────────────────────────────────────────────
+
+@app.get("/favicon.ico")
+async def favicon():
+    from fastapi.responses import Response
+    return Response(status_code=204)
 
 @app.get("/")
 async def root():
