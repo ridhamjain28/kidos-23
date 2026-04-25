@@ -477,43 +477,63 @@ document.querySelectorAll(".game-card").forEach(card => {
     gameTutorialBox.style.display = "block";
     gameTutorialText.innerText = "Nexus is preparing your game and tutorial...";
     
-    // Render basic mock game board
+    // Static Tutorial Content (No AI)
+    const tutorials = {
+      "chess": "Move your pieces to capture the king! Pawns go forward, Knights jump in L-shapes, and Queens move everywhere.",
+      "memory": "Flip the cards to find matching pairs! Remember where the items are to win.",
+      "painting": "Use your brush to create a masterpiece! Every color tells a story.",
+      "puzzles": "Fit the pieces together to reveal the hidden picture. Start with the corners!"
+    };
+
+    gameTutorialText.innerText = tutorials[gameType] || "Have fun playing this game!";
+    speakText(gameTutorialText.innerText);
+
+    // Render static game content
     if (gameType === "chess") {
+      const pieces = {
+        0: '♜', 1: '♞', 2: '♝', 3: '♛', 4: '♚', 5: '♝', 6: '♞', 7: '♜',
+        8: '♟', 9: '♟', 10: '♟', 11: '♟', 12: '♟', 13: '♟', 14: '♟', 15: '♟',
+        48: '♙', 49: '♙', 50: '♙', 51: '♙', 52: '♙', 53: '♙', 54: '♙', 55: '♙',
+        56: '♖', 57: '♘', 58: '♗', 59: '♕', 60: '♔', 61: '♗', 62: '♘', 63: '♖'
+      };
       gameContent.innerHTML = `
-        <div style="display:grid; grid-template-columns:repeat(8, 1fr); width:100%; max-width:400px; aspect-ratio:1/1; border:4px solid var(--text-primary);">
+        <div style="display:grid; grid-template-columns:repeat(8, 1fr); width:100%; max-width:500px; aspect-ratio:1/1; border:8px solid #374151; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
           ${Array(64).fill(0).map((_, i) => {
             const row = Math.floor(i / 8);
             const col = i % 8;
             const isBlack = (row + col) % 2 === 1;
-            return `<div style="background:${isBlack ? '#4b5563' : '#e5e7eb'};"></div>`;
+            return `
+              <div style="background:${isBlack ? '#4b5563' : '#e5e7eb'}; display:flex; align-items:center; justify-content:center; font-size:40px; color:${row < 2 ? '#000' : '#fff'}; cursor:pointer; transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                ${pieces[i] || ''}
+              </div>`;
           }).join('')}
         </div>
-        <div style="position:absolute; top:20px; left:20px; font-size:24px; font-weight:800; color:var(--text-primary);">♟️ Nexus Chess</div>
       `;
+    } else if (gameType === "memory") {
+        const items = ['🍎', '🍌', '🍇', '🍓', '🍒', '🍍', '🥝', '🍉'];
+        const board = [...items, ...items].sort(() => Math.random() - 0.5);
+        gameContent.innerHTML = `
+          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:15px; width:100%; max-width:500px;">
+            ${board.map(emoji => `
+              <div style="aspect-ratio:1/1; background:rgba(255,255,255,0.1); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:40px; cursor:pointer; border:1px solid var(--border-glass);" onclick="this.style.background='var(--aurora-cyan)'; this.innerText='${emoji}'">
+                ❓
+              </div>
+            `).join('')}
+          </div>
+        `;
     } else {
       gameContent.innerHTML = `
         <div style="text-align:center; color:var(--text-primary);">
-           <div style="font-size:80px; margin-bottom:20px;">${card.querySelector('div').innerText}</div>
-           <h2>Loading ${title}...</h2>
+           <div style="font-size:120px; margin-bottom:20px; filter:drop-shadow(0 0 20px var(--aurora-cyan));">${card.querySelector('div').innerText}</div>
+           <h2 style="font-size:32px; font-weight:800;">${title}</h2>
+           <p style="opacity:0.7; margin-top:10px;">Offline Sandbox Mode Active</p>
         </div>
       `;
     }
     
-    // Ask Nexus (IBLM) for a tutorial based on the game
-    try {
-      sendIblmTelemetry("game_start", [{ type: "engagement", value: 2 }], ["Gaming", gameType]);
-      const prompt = `The user is playing a new game: ${title}. Provide a very short, engaging 2-sentence tutorial or encouragement suitable for a child, acting as Nexus.`;
-      const res = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: prompt }),
-      });
-      const data = await res.json();
-      gameTutorialText.innerText = data.content;
-      speakText(data.content);
-    } catch (err) {
-      gameTutorialText.innerText = "Have fun playing " + title + "!";
-    }
+    sendIblmTelemetry("game_start", [{ type: "engagement", value: 2 }], ["Gaming", gameType]);
+  });
+});
   });
 });
 
