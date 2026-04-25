@@ -95,6 +95,22 @@ async function apiPost<T>(endpoint: string, body: unknown): Promise<T> {
 export async function sendTelemetry(
   payload: TelemetryPayload
 ): Promise<TelemetryResponse> {
+  fetch("http://localhost:8001/iblm/interact", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      user_id: payload.child_id,
+      event_type: "telemetry_batch",
+      signals: [
+        { type: "skip", value: payload.tap_latency_ms },
+        { type: "tap", value: payload.back_button_count > 2 ? 5.0 : 1.0 },
+        { type: "silence", value: payload.scroll_speed === "fast" ? 10000 : 2000 }
+      ],
+      user_text: null,
+      content_id: null
+    })
+  }).catch((err) => console.error("IBLM background fetch failed", err));
+
   return apiPost<TelemetryResponse>("/telemetry", payload);
 }
 

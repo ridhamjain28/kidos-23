@@ -3,15 +3,16 @@ import asyncio
 import json
 
 BASE_URL = "http://localhost:8000"
-USER_ID = "trial_user_001"
+TRIAL_USER_ID = "550e8400-e29b-41d4-a716-446655440000"
 
 async def run_trial():
-    print(f"--- Starting Trial for User: {USER_ID} ---")
+    user_id = TRIAL_USER_ID
+    print(f"--- Starting Trial for {user_id} ---")
     
     async with httpx.AsyncClient(timeout=120.0) as client:
         # 1. Start Session
         print("\n[Step 1] Starting IBLM Session...")
-        resp = await client.post(f"{BASE_URL}/iblm/session/start", json={"user_id": USER_ID})
+        resp = await client.post(f"{BASE_URL}/iblm/session/start", json={"user_id": user_id})
         print(f"Response: {resp.status_code}")
         print(f"Kernel Summary: {json.dumps(resp.json(), indent=2)}")
 

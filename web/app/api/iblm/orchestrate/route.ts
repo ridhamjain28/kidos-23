@@ -18,10 +18,13 @@ export async function POST(req: NextRequest) {
       user_id: interaction.user_id,
       event_type: interaction.action,
       signals: [
-        { type: "skip", value: interaction.duration_seconds < 5 ? 500 : 5000 },
+        { type: "skip", value: interaction.duration_seconds < 5 ? 400 : 5000 },
+        { type: "tap", value: interaction.action === "skip" ? 5.0 : 1.0 },
+        { type: "abandon", value: interaction.action === "too_hard" ? 0.8 : 0.0 },
       ],
       user_text: interaction.user_text || null,
-      content_id: interaction.content_id || null
+      content_id: interaction.content_id || null,
+      content_tags: interaction.content_tags || []  // Forward tags so IBLM updates per-tag scores
     };
 
     const res = await fetch(`${backendUrl}/iblm/interact`, {

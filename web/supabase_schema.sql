@@ -124,19 +124,26 @@ CREATE POLICY "profiles_own"     ON user_profiles
 -- ──────────────────────────────────────────────────────────
 DROP TABLE IF EXISTS iblm_kernels;
 CREATE TABLE IF NOT EXISTS iblm_kernels (
-  user_id                     TEXT PRIMARY KEY,
-  curiosity_type              TEXT NOT NULL DEFAULT 'UNKNOWN',
-  attention_span_ms           INT NOT NULL DEFAULT 5000,
-  frustration_threshold       NUMERIC NOT NULL DEFAULT 0.65,
-  growth_projections          JSONB NOT NULL DEFAULT '{}',
-  rules                       JSONB NOT NULL DEFAULT '[]',
-  intervention_success_rate   NUMERIC NOT NULL DEFAULT 0.0,
-  intervention_count          INT NOT NULL DEFAULT 0,
-  successful_interventions    INT NOT NULL DEFAULT 0,
-  gamification_attempts       INT NOT NULL DEFAULT 0,
-  total_sessions              INT NOT NULL DEFAULT 0,
-  updated_at                  TIMESTAMPTZ NOT NULL DEFAULT now()
+  user_id            UUID PRIMARY KEY,
+  curiosity_type     TEXT DEFAULT 'exploratory',
+  attention_span_ms  INTEGER DEFAULT 5000,
+  frustration_threshold NUMERIC DEFAULT 0.65,
+  growth_projections JSONB DEFAULT '{}',
+  rules              JSONB DEFAULT '[]',
+  tag_scores         JSONB DEFAULT '{}', -- Per-tag engagement & frustration: {"Space": {"engagement": 0.7, "frustration": 0.2}}
+  intervention_success_rate NUMERIC DEFAULT 0.0,
+  intervention_count INTEGER DEFAULT 0,
+  successful_interventions INTEGER DEFAULT 0,
+  gamification_attempts INTEGER DEFAULT 0,
+  total_sessions     INTEGER DEFAULT 0,
+  kernel_size_bytes  INTEGER DEFAULT 0,
+  last_active        TIMESTAMPTZ DEFAULT now()
 );
+
+-- RLS: Allow anon/service key to read+write kernels
+ALTER TABLE iblm_kernels ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public All Kernels" ON iblm_kernels;
+CREATE POLICY "Public All Kernels" ON iblm_kernels FOR ALL USING (true) WITH CHECK (true);
 
 -- ──────────────────────────────────────────────────────────
 -- TABLE: iblm_signals
@@ -145,17 +152,25 @@ CREATE TABLE IF NOT EXISTS iblm_kernels (
 DROP TABLE IF EXISTS iblm_signals;
 CREATE TABLE IF NOT EXISTS iblm_signals (
   id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id            TEXT NOT NULL,
+  user_id            UUID NOT NULL REFERENCES iblm_kernels(user_id) ON DELETE CASCADE,
   signal_type        TEXT,
   f_score            NUMERIC,
   svi_score          NUMERIC,
   action_taken       TEXT,
   event_type         TEXT,
+  content_tags       TEXT[] DEFAULT '{}', -- Tags of the content item that triggered this signal
   timestamp          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS ix_iblm_signals_user_id ON iblm_signals(user_id);
 CREATE INDEX IF NOT EXISTS ix_iblm_signals_timestamp ON iblm_signals(timestamp DESC);
+
+-- RLS: Allow anon/service key to read+write signals
+ALTER TABLE iblm_signals ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Insert Signals" ON iblm_signals;
+CREATE POLICY "Public Insert Signals" ON iblm_signals FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Public Select Signals" ON iblm_signals;
+CREATE POLICY "Public Select Signals" ON iblm_signals FOR SELECT USING (true);
 
 -- ──────────────────────────────────────────────────────────
 -- TABLE: iblm_sessions
@@ -164,7 +179,7 @@ CREATE INDEX IF NOT EXISTS ix_iblm_signals_timestamp ON iblm_signals(timestamp D
 DROP TABLE IF EXISTS iblm_sessions;
 CREATE TABLE IF NOT EXISTS iblm_sessions (
   id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id            TEXT NOT NULL,
+  user_id            UUID NOT NULL REFERENCES iblm_kernels(user_id) ON DELETE CASCADE,
   summary_data       JSONB NOT NULL DEFAULT '{}',
   started_at         TIMESTAMPTZ NOT NULL,
   ended_at           TIMESTAMPTZ NOT NULL DEFAULT now()

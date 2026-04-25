@@ -64,6 +64,35 @@ export default function DashboardPage() {
     setUser(JSON.parse(raw));
   }, [router]);
 
+  // IBLM Session Lifecycle
+  useEffect(() => {
+    if (!user) return;
+    
+    const IBLM_BACKEND_URL = process.env.NEXT_PUBLIC_IBLM_BACKEND_URL || 'http://localhost:8001';
+    
+    // Start session
+    fetch(`${IBLM_BACKEND_URL}/iblm/session/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id })
+    }).catch(console.error);
+
+    const endSession = () => {
+      fetch(`${IBLM_BACKEND_URL}/iblm/session/end`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id, mastery_updates: {} }),
+        keepalive: true
+      }).catch(console.error);
+    };
+
+    window.addEventListener('beforeunload', endSession);
+    return () => {
+      window.removeEventListener('beforeunload', endSession);
+      endSession();
+    };
+  }, [user]);
+
   const fetchContent = useCallback(async (format?: string, topic?: string) => {
     if (!user) return;
     setLoading(true);

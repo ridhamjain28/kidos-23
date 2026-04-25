@@ -4,6 +4,8 @@ import json
 
 BASE_URL = "http://localhost:8000"
 
+TRIAL_USER_ID = "550e8400-e29b-41d4-a716-446655440000"
+
 async def simulate_behavior(user_id, behavior_type):
     print(f"\n--- Simulating {behavior_type} Behavior for {user_id} ---")
     
@@ -52,9 +54,9 @@ async def simulate_behavior(user_id, behavior_type):
         await client.post(f"{BASE_URL}/iblm/session/end", json={"user_id": user_id})
 
 async def main():
-    # Run both behaviors to compare
-    await simulate_behavior("happy_kid_001", "Happy")
-    await simulate_behavior("frustrated_kid_002", "Frustrated")
+    # Run both behaviors to compare (using valid UUIDs)
+    await simulate_behavior("550e8400-e29b-41d4-a716-446655440001", "Happy")
+    await simulate_behavior("550e8400-e29b-41d4-a716-446655440002", "Frustrated")
 
 if __name__ == "__main__":
     asyncio.run(main())

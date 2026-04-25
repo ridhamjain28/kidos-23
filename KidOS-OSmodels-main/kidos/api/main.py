@@ -160,11 +160,32 @@ async def cognicards_generate(request: Request):
     from fastapi.responses import JSONResponse
     import re
     import json as json_mod
+    from app.services.supabase_service import supabase_metrics
     
     body = await request.json()
     top_tags = body.get("topTags", ["Tech", "Science"])
     age = body.get("age", 7)
+    user_id = body.get("user_id", None)
     mission_briefing = body.get("mission_briefing", "")
+    
+    # --- Fetch per-tag scores to build a richer briefing ---
+    tag_context = ""
+    if user_id:
+        tag_scores = await supabase_metrics.get_kernel_tag_scores(user_id)
+        tag_hints = []
+        for tag in top_tags:
+            score = tag_scores.get(tag)
+            if score:
+                eng = score.get("engagement", 0.5)
+                fru = score.get("frustration", 0.0)
+                if fru > 0.6:
+                    tag_hints.append(f"{tag}: HIGH FRUSTRATION — simplify dramatically")
+                elif eng > 0.7:
+                    tag_hints.append(f"{tag}: HIGH ENGAGEMENT — go deeper, add complexity")
+                else:
+                    tag_hints.append(f"{tag}: neutral — standard depth")
+        if tag_hints:
+            tag_context = "Tag Intelligence: " + " | ".join(tag_hints) + "."
     
     try:
         if age <= 7:
@@ -175,12 +196,13 @@ async def cognicards_generate(request: Request):
         prompt = (
             f"You are a kid-friendly content generator. Target Age: {age}.\n"
             f"IBLM CONTEXT: {mission_briefing}\n"
+            f"{tag_context}\n"
             f"INSTRUCTION: {age_prompt}\n"
             f"TASK: Generate exactly 2 short content items. Each must be exactly 2 lines long.\n"
-            f"TOPICS: {top_tags[0]} and {top_tags[1]}.\n"
-            f"BEHAVIORAL RULES: Follow any constraints in the IBLM CONTEXT strictly.\n"
-            f"OUTPUT FORMAT: Return ONLY a valid JSON array of objects. No intro, no outro, no markdown formatting blocks.\n"
-            f"Example format: [{{'title': '...', 'body': '...', 'tags': [...]}}, ...]"
+            f"TOPICS: {top_tags[0]} and {top_tags[1] if len(top_tags) > 1 else top_tags[0]}.\n"
+            f"BEHAVIORAL RULES: Follow any constraints in the IBLM CONTEXT and Tag Intelligence strictly.\n"
+            f"OUTPUT FORMAT: Return ONLY a valid JSON array. No intro, no markdown.\n"
+            f"Example: [{{\"title\": \"...\", \"body\": \"...\", \"tags\": [\"{top_tags[0]}\"]}}, ...]"
         )
         
         raw_response = await ollama.generate(prompt=prompt)
@@ -196,10 +218,12 @@ async def cognicards_generate(request: Request):
         
         safe_items = []
         for i, item in enumerate(items[:2]):
+            # Use LLM-generated tags if present, else fallback to top_tags
+            item_tags = item.get("tags", top_tags)
             safe_items.append({
                 "title": item.get("title", "Synthesized Insight"),
                 "body": item.get("body", "Content currently being processed."),
-                "tags": top_tags
+                "tags": item_tags if isinstance(item_tags, list) else top_tags
             })
             
         if len(safe_items) < 2:

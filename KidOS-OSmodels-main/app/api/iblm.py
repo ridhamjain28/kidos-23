@@ -28,6 +28,7 @@ class InteractRequest(BaseModel):
     signals: List[SignalModel]
     user_text: Optional[str] = None
     content_id: Optional[str] = None
+    content_tags: List[str] = Field(default_factory=list)  # Tags of the content the user interacted with
 
 class InterventionOutcomeRequest(BaseModel):
     user_id: str
@@ -51,6 +52,8 @@ async def end_session(request: SessionEndRequest):
 
 @iblm_router.post("/interact")
 async def interact(request: InteractRequest):
+    from app.services.supabase_service import supabase_metrics
+    
     raw_signals_dicts = [{"signal_type": s.signal_type, "value": s.value} for s in request.signals]
     
     decision = await orchestrator.process_interaction(
@@ -60,6 +63,42 @@ async def interact(request: InteractRequest):
         user_text=request.user_text,
         content_id=request.content_id
     )
+    
+    # --- Tag Score Update ---
+    if request.content_tags:
+        existing = await supabase_metrics.get_kernel_tag_scores(request.user_id)
+        
+        for tag in request.content_tags:
+            entry = existing.get(tag, {"engagement": 0.5, "frustration": 0.0, "interactions": 0})
+            entry["interactions"] = entry.get("interactions", 0) + 1
+            
+            # Positive signal (long dwell, like) = higher engagement
+            # Negative signal (skip, abandon) = higher frustration
+            skip_signals = [s for s in raw_signals_dicts if s["signal_type"] == "skip" and s["value"] < 2000]
+            if skip_signals or request.event_type in ["too_hard", "abandon"]:
+                entry["frustration"] = min(1.0, entry.get("frustration", 0) + 0.1)
+                entry["engagement"] = max(0.0, entry.get("engagement", 0.5) - 0.05)
+            else:
+                entry["engagement"] = min(1.0, entry.get("engagement", 0.5) + 0.05)
+                entry["frustration"] = max(0.0, entry.get("frustration", 0) - 0.02)
+            
+            existing[tag] = entry
+        
+        # Push updated tag scores back to Supabase kernel
+        await supabase_metrics.upsert_kernel_tag_scores(request.user_id, existing)
+        
+        # Also log signal row with associated tags
+        await supabase_metrics.log_metrics(
+            user_id=request.user_id,
+            metrics={
+                "signal_type": "interaction",
+                "f_score": decision.F_score,
+                "svi_score": decision.SVI_score,
+                "action_taken": decision.action,
+                "event_type": request.event_type
+            },
+            content_tags=request.content_tags
+        )
     
     return {
         "action": decision.action,
