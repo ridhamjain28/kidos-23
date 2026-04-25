@@ -571,7 +571,7 @@ function initGameListeners() {
                             const isBlack = (row + col) % 2 === 1;
                             const pieceColor = row < 2 ? '#1e293b' : '#f8fafc';
                             return `
-                                <div style="background:${isBlack ? '#4b5563' : '#e5e7eb'}; display:flex; align-items:center; justify-content:center; font-size:40px; color:${pieceColor}; cursor:pointer; transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                                <div style="background:${isBlack ? '#4b5563' : '#e5e7eb'}; display:flex; align-items:center; justify-content:center; font-size:40px; color:${pieceColor}; cursor:pointer; transition:transform 0.2s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" onclick="this.style.background='var(--aurora-cyan)'">
                                     ${pieces[i] || ''}
                                 </div>`;
                         }).join('')}
@@ -579,24 +579,91 @@ function initGameListeners() {
                 `;
             } else if (gameType === "memory") {
                 const items = ['🍎', '🍌', '🍇', '🍓', '🍒', '🍍', '🥝', '🍉'];
-                const board = [...items, ...items].sort(() => Math.random() - 0.5);
+                let board = [...items, ...items].sort(() => Math.random() - 0.5);
+                let first = null;
+                window.flip = (el, icon) => {
+                    if (el.innerText !== '❓') return;
+                    el.innerText = icon;
+                    el.style.background = 'var(--aurora-cyan)';
+                    if (!first) {
+                        first = { el, icon };
+                    } else {
+                        if (first.icon === icon) {
+                            speakText("Match!");
+                            first = null;
+                        } else {
+                            const f = first;
+                            first = null;
+                            setTimeout(() => {
+                                el.innerText = '❓';
+                                el.style.background = 'rgba(255,255,255,0.1)';
+                                f.el.innerText = '❓';
+                                f.el.style.background = 'rgba(255,255,255,0.1)';
+                            }, 500);
+                        }
+                    }
+                };
                 gameContent.innerHTML = `
                     <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:15px; width:100%; max-width:500px;">
                         ${board.map(emoji => `
-                            <div style="aspect-ratio:1/1; background:rgba(255,255,255,0.1); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:40px; cursor:pointer; border:1px solid var(--border-glass);" onclick="this.style.background='var(--aurora-cyan)'; this.innerText='${emoji}'">
+                            <div style="aspect-ratio:1/1; background:rgba(255,255,255,0.1); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:40px; cursor:pointer; border:1px solid var(--border-glass);" onclick="window.flip(this, '${emoji}')">
                                 ❓
                             </div>
                         `).join('')}
                     </div>
                 `;
-            } else {
-                gameContent.innerHTML = `
-                    <div style="text-align:center; color:var(--text-primary);">
-                        <div style="font-size:120px; margin-bottom:20px; filter:drop-shadow(0 0 20px var(--aurora-cyan));">${card.querySelector('div').innerText}</div>
-                        <h2 style="font-size:32px; font-weight:800;">${title}</h2>
-                        <p style="opacity:0.7; margin-top:10px;">Offline Sandbox Mode Active</p>
-                    </div>
-                `;
+            } else if (gameType === "numbers") {
+                let score = 0;
+                window.checkAns = (val, correct) => {
+                    if (val === correct) {
+                        score++;
+                        speakText("Correct!");
+                        window.nextQ();
+                    } else {
+                        speakText("Oops!");
+                    }
+                };
+                window.nextQ = () => {
+                    const a = Math.floor(Math.random() * 10) + 1;
+                    const b = Math.floor(Math.random() * 10) + 1;
+                    const ans = a + b;
+                    const choices = [ans, ans+1, ans-1, ans+2].sort(() => Math.random()-0.5);
+                    gameContent.innerHTML = `
+                        <div style="text-align:center;">
+                            <div style="font-size:32px; color:var(--aurora-cyan); margin-bottom:20px;">Score: ${score}</div>
+                            <div style="font-size:84px; font-weight:800; margin-bottom:40px;">${a} + ${b}</div>
+                            <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:20px;">
+                                ${choices.map(c => `<button class="btn-generate-facts" style="padding:20px; font-size:32px;" onclick="window.checkAns(${c}, ${ans})">${c}</button>`).join('')}
+                            </div>
+                        </div>
+                    `;
+                };
+                window.nextQ();
+            } else if (gameType === "words") {
+                const words = ["GALAXY", "NEBULA", "ROBOT", "AURORA", "SPACE", "PLANET"];
+                window.checkWord = (correct) => {
+                    const val = document.getElementById('word-input').value.toUpperCase();
+                    if (val === correct) {
+                        speakText("Great!");
+                        window.nextW();
+                    } else {
+                        speakText("Try again!");
+                    }
+                };
+                window.nextW = () => {
+                    const word = words[Math.floor(Math.random() * words.length)];
+                    const scrambled = word.split('').sort(() => Math.random() - 0.5).join('');
+                    gameContent.innerHTML = `
+                        <div style="text-align:center;">
+                            <div style="font-size:24px; color:var(--aurora-cyan); margin-bottom:10px;">Unscramble!</div>
+                            <div style="font-size:64px; font-weight:900; letter-spacing:10px; margin-bottom:40px;">${scrambled}</div>
+                            <input id="word-input" style="background:rgba(0,0,0,0.3); border:1px solid var(--border-glass); padding:15px; border-radius:12px; color:#fff; font-size:24px; text-align:center; width:280px; margin-bottom:20px;" placeholder="...">
+                            <br>
+                            <button class="btn-generate-facts" onclick="window.checkWord('${word}')">Submit</button>
+                        </div>
+                    `;
+                };
+                window.nextW();
             }
             sendIblmTelemetry("game_start", [{ type: "engagement", value: 2 }], ["Gaming", gameType]);
         });
