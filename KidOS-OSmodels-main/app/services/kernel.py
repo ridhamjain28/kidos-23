@@ -17,6 +17,10 @@ class IBLMKernel:
     successful_interventions: int = 0
     gamification_attempts: int = 0
     total_sessions: int = 0
+    tag_scores: dict = field(default_factory=lambda: {
+        "Tech": 0, "Science": 0, "Gaming": 0, "Art": 0,
+        "Cooking": 0, "Fitness": 0, "Travel": 0, "Finance": 0
+    })
 
 class KernelManager:
     def __init__(self):
@@ -60,6 +64,10 @@ class KernelManager:
         await self._upsert_to_supabase(kernel)
 
     async def _upsert_to_supabase(self, kernel: IBLMKernel):
+        print(f"[KERNEL SAVE] Attempting save for user: {kernel.user_id}")
+        print(f"[KERNEL SAVE] Supabase URL set: {bool(supabase_metrics.url)}")
+        print(f"[KERNEL SAVE] Supabase KEY set: {bool(supabase_metrics.key)}")
+
         endpoint = f"{supabase_metrics.url}/rest/v1/iblm_kernels?on_conflict=user_id"
         
         payload = asdict(kernel)
@@ -68,7 +76,11 @@ class KernelManager:
         headers = {**supabase_metrics.headers, "Prefer": "resolution=merge-duplicates"}
         async with httpx.AsyncClient() as client:
             try:
-                await client.post(endpoint, json=payload, headers=headers)
+                response = await client.post(endpoint, json=payload, headers=headers)
+                print(f"[KERNEL SAVE] Status: {response.status_code}")
+                print(f"[KERNEL SAVE] Response: {response.text}")
+                print(f"[KERNEL SAVE] Payload keys: {list(payload.keys())}")
+                print(f"[KERNEL SAVE] URL: {endpoint}")
             except Exception as e:
                 print(f"Error saving kernel to Supabase for {kernel.user_id}: {e}")
 
@@ -143,6 +155,36 @@ class KernelManager:
                     if idx < len(levels) - 1:
                         kernel.growth_projections[domain]["level"] = levels[idx + 1]
                         kernel.growth_projections[domain]["sessions_above_threshold"] = 0
+
+    async def update_tag_scores(self, user_id: str, tags: list, signal: str):
+        kernel = await self.get(user_id)
+        
+        SCORING = {
+            "like": +1.0, "view": +0.3, "skip": -0.5, "full": +1.5, 
+            "partial": +0.5, "early_skip": -0.8, "click": +0.2
+        }
+        
+        delta = SCORING.get(signal, 0)
+        for tag in tags:
+            current = kernel.tag_scores.get(tag, 0)
+            kernel.tag_scores[tag] = round(max(-10, min(10, current + delta)), 2)
+        
+        # Derive curiosity_type from tag_scores
+        visual_tags = {"Art", "Travel"}
+        kinetic_tags = {"Gaming", "Fitness"}
+        textual_tags = {"Tech", "Science", "Finance", "Cooking"}
+        
+        v = sum(kernel.tag_scores.get(t, 0) for t in visual_tags)
+        k = sum(kernel.tag_scores.get(t, 0) for t in kinetic_tags)
+        tx = sum(kernel.tag_scores.get(t, 0) for t in textual_tags)
+        
+        kernel.curiosity_type = max(
+            [("VISUAL", v), ("KINETIC", k), ("TEXTUAL", tx)],
+            key=lambda x: x[1]
+        )[0]
+        
+        await self.save(user_id)
+        return kernel.tag_scores
 
     async def get_kernel_summary(self, user_id):
         kernel = await self.get(user_id)

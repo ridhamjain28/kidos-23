@@ -66,30 +66,13 @@ async def interact(request: InteractRequest):
     
     # --- Tag Score Update ---
     if request.content_tags:
-        existing = await supabase_metrics.get_kernel_tag_scores(request.user_id)
+        await kernel_manager.update_tag_scores(
+            user_id=request.user_id,
+            tags=request.content_tags,
+            signal=request.event_type
+        )
         
-        for tag in request.content_tags:
-            entry = existing.get(tag, {"engagement": 0.5, "frustration": 0.0, "interactions": 0})
-            entry["interactions"] = entry.get("interactions", 0) + 1
-            
-            # Positive signal (long dwell, like) = higher engagement
-            # Negative signal (skip, abandon) = higher frustration
-            skip_signals = [s for s in raw_signals_dicts if s["signal_type"] == "skip" and s["value"] < 2000]
-            if skip_signals or request.event_type in ["too_hard", "abandon", "skip"]:
-                entry["frustration"] = min(1.0, entry.get("frustration", 0) + 0.1)
-                entry["engagement"] = max(0.0, entry.get("engagement", 0.5) - 0.05)
-            elif request.event_type in ["like", "more_like_this", "finish"]:
-                entry["engagement"] = min(1.0, entry.get("engagement", 0.5) + 0.1)
-                entry["frustration"] = max(0.0, entry.get("frustration", 0) - 0.05)
-            else:
-                entry["engagement"] = min(1.0, entry.get("engagement", 0.5) + 0.02)
-            
-            existing[tag] = entry
-        
-        # Push updated tag scores back to Supabase kernel
-        await supabase_metrics.upsert_kernel_tag_scores(request.user_id, existing)
-        
-        # Also log signal row with associated tags
+        # Log signal row with associated tags in Supabase
         await supabase_metrics.log_metrics(
             user_id=request.user_id,
             metrics={
