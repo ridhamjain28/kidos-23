@@ -534,8 +534,6 @@ document.querySelectorAll(".game-card").forEach(card => {
     sendIblmTelemetry("game_start", [{ type: "engagement", value: 2 }], ["Gaming", gameType]);
   });
 });
-  });
-});
 
 $("#game-player-close")?.addEventListener("click", () => {
     gamePlayer.classList.remove("open");
