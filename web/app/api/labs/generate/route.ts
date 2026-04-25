@@ -23,7 +23,7 @@ JSON FORMAT:
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { topTags, age = 7 } = body;
+    const { topTags, age = 7, userId, mission_briefing } = body;
     const tags: LabsTag[] = topTags && topTags.length > 0 ? topTags : ["Tech", "Science"];
 
     // Try calling the Python backend first (Primary)
@@ -31,7 +31,12 @@ export async function POST(req: NextRequest) {
       const pythonRes = await fetch('http://localhost:8000/cognicards/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topTags: tags, age }),
+        body: JSON.stringify({ 
+          topTags: tags, 
+          age, 
+          user_id: userId, 
+          mission_briefing 
+        }),
       });
 
       if (pythonRes.ok) {
@@ -50,7 +55,8 @@ export async function POST(req: NextRequest) {
     const ollamaUrl = process.env.OLLAMA_HOST || "http://localhost:11434";
     const model = process.env.OLLAMA_MODEL || "llama3.2:3b";
 
-    const prompt = `Generate exactly 2 items for a ${age}-year-old child interest in: ${tags.join(" and ")}.`;
+    const prompt = `Generate exactly 2 items for a ${age}-year-old child interest in: ${tags.join(" and ")}.
+    ${mission_briefing ? `Contextual Intelligence: ${mission_briefing}` : ''}`;
 
     const res = await fetch(`${ollamaUrl}/api/generate`, {
       method: "POST",

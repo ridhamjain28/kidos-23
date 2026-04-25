@@ -14,6 +14,7 @@ import {
 import { InterestSidebar } from '@/components/labs/InterestSidebar';
 import { DiscoverMode } from '@/components/labs/DiscoverMode';
 import { WatchMode } from '@/components/labs/WatchMode';
+import { supabase } from '@/lib/supabase';
 
 export default function LabsPage() {
   const [mode, setMode] = useState<'discover' | 'watch'>('discover');
@@ -88,6 +89,10 @@ export default function LabsPage() {
   const handleSynthesize = async () => {
     setSynthesisLoading(true);
     
+    // 1. Get User ID (Supabase Session or LocalStorage)
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id || (typeof window !== 'undefined' ? localStorage.getItem('kidos_user_id') : null) || 'demo_user';
+
     const sortedTags = Object.entries(profile)
       .sort(([, a], [, b]) => b - a)
       .map(([t]) => t as LabsTag);
@@ -96,10 +101,28 @@ export default function LabsPage() {
     setGenContext(top2.join(' + '));
 
     try {
+      // 2. Fetch IBLM Kernel from Python Backend
+      const backendUrl = process.env.NEXT_PUBLIC_IBLM_BACKEND_URL || 'http://localhost:8000';
+      const kernelRes = await fetch(`${backendUrl}/iblm/kernel/${userId}`)
+        .catch(() => null);
+
+      const kernel = kernelRes?.ok ? await kernelRes.json() : null;
+
+      // 3. Build Mission Briefing
+      const mission_briefing = kernel ? 
+        `Child profile: curiosity_type=${kernel.curiosity_type}, frustration_threshold=${kernel.frustration_threshold}, sessions=${kernel.total_sessions}. Top rules: ${JSON.stringify((kernel.rules || []).slice(0, 3))}. Growth: ${JSON.stringify(kernel.growth_projections || {})}` 
+        : '';
+
+      // 4. Call Synthesis API with Mission Briefing
       const res = await fetch('/api/labs/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topTags: top2, age }),
+        body: JSON.stringify({ 
+          topTags: top2, 
+          age,
+          userId,
+          mission_briefing 
+        }),
       });
       
       const data = await res.json();
