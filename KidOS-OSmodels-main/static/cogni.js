@@ -90,8 +90,11 @@ function handleSignal(type, tags) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             user_id: "550e8400-e29b-41d4-a716-446655440000", // Valid UUID for Supabase
-            event_type: type,
-            signals: [{ type: "engagement", value: change }],
+            event_type: "content_signal",
+            signals: [
+                { type: 'skip', value: type === 'skip' ? 400 : 5000 },
+                { type: 'tap', value: type === 'like' ? 1.0 : 0.0 }
+            ],
             content_tags: tags
         })
     }).then(res => res.json())
