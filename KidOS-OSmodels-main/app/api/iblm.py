@@ -36,12 +36,12 @@ class InterventionOutcomeRequest(BaseModel):
 
 @iblm_router.post("/session/start")
 async def start_session(request: SessionStartRequest):
-    orchestrator.start_session(request.user_id)
-    return kernel_manager.get_kernel_summary(request.user_id)
+    await orchestrator.start_session(request.user_id)
+    return await kernel_manager.get_kernel_summary(request.user_id)
 
 @iblm_router.post("/session/end")
 async def end_session(request: SessionEndRequest):
-    orchestrator.end_session(request.user_id, request.mastery_updates)
+    await orchestrator.end_session(request.user_id, request.mastery_updates)
     
     # Fetch the most recent summary for the user
     summaries = warm_memory._summaries.get(request.user_id, [])
@@ -73,11 +73,11 @@ async def interact(request: InteractRequest):
 
 @iblm_router.get("/kernel/{user_id}")
 async def get_kernel(user_id: str):
-    return kernel_manager.get_kernel_summary(user_id)
+    return await kernel_manager.get_kernel_summary(user_id)
 
 @iblm_router.post("/intervention/outcome")
 async def intervention_outcome(request: InterventionOutcomeRequest):
-    success = orchestrator.record_intervention_outcome(
+    success = await orchestrator.record_intervention_outcome(
         user_id=request.user_id,
         skip_before=request.skip_latency_before,
         skip_after=request.skip_latency_after

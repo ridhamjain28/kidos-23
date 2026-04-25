@@ -22,16 +22,16 @@ class IBLMOrchestrator:
     def __init__(self):
         self.pending_conflicts: Dict[str, List[Dict[str, Any]]] = {}
 
-    def start_session(self, user_id: str):
+    async def start_session(self, user_id: str):
         # Init session signals list (handled inside hot_memory)
         hot_memory.start_session(user_id)
         
         # Increment kernel.total_sessions
-        kernel = kernel_manager.get(user_id)
+        kernel = await kernel_manager.get(user_id)
         kernel.total_sessions += 1
-        kernel_manager.save(user_id)
+        await kernel_manager.save(user_id)
 
-    def end_session(self, user_id: str, mastery_updates: dict = None):
+    async def end_session(self, user_id: str, mastery_updates: dict = None):
         if mastery_updates is None:
             mastery_updates = {}
             
@@ -48,7 +48,7 @@ class IBLMOrchestrator:
         )
         
         if summary:
-            kernel = kernel_manager.get(user_id)
+            kernel = await kernel_manager.get(user_id)
             
             # Update kernel.curiosity_type from trends
             trends = warm_memory.get_behavioral_trends(user_id)
@@ -56,11 +56,11 @@ class IBLMOrchestrator:
                 kernel.curiosity_type = trends["dominant_curiosity_type"]
             
             # Apply decay
-            kernel_manager.apply_decay(user_id)
+            await kernel_manager.apply_decay(user_id)
             
             # Add rule for dominant curiosity
             if kernel.curiosity_type != "UNKNOWN":
-                kernel_manager.add_rule(
+                await kernel_manager.add_rule(
                     user_id=user_id,
                     category="learning_style",
                     condition=f"user shows {kernel.curiosity_type} curiosity",
@@ -68,7 +68,7 @@ class IBLMOrchestrator:
                     weight=0.8
                 )
             
-            kernel_manager.save(user_id)
+            await kernel_manager.save(user_id)
 
     async def process_interaction(self, user_id: str, event_type: str, raw_signals_dicts: List[dict], user_text: str = None, content_id: str = None) -> ModalityDecision:
         # 1. Parse raw_signals into RawSignal objects
@@ -114,7 +114,7 @@ class IBLMOrchestrator:
             reason = "frustration triggered"
 
         # 8. Build mission_briefing string
-        kernel_summary = kernel_manager.get_kernel_summary(user_id)
+        kernel_summary = await kernel_manager.get_kernel_summary(user_id)
         curiosity_type = kernel_summary.get("curiosity_type", "UNKNOWN")
         threshold = kernel_summary.get("frustration_threshold", 0.65)
         
@@ -197,16 +197,16 @@ Return:
                 # 5. Add rules
                 suggested_rules = parsed_json.get("suggested_rules", [])
                 for rule in suggested_rules:
-                    kernel_manager.add_rule(
+                    await kernel_manager.add_rule(
                         user_id, "auto", rule.get("condition", ""), rule.get("action", ""), rule.get("weight", 0.5)
                     )
                 
                 # 6. Update curiosity
                 curiosity_type = parsed_json.get("curiosity_type", "UNKNOWN")
                 if curiosity_type != "UNKNOWN":
-                    kernel = kernel_manager.get(user_id)
+                    kernel = await kernel_manager.get(user_id)
                     kernel.curiosity_type = curiosity_type
-                    kernel_manager.save(user_id)
+                    await kernel_manager.save(user_id)
                     
         except Exception:
             # 8. Silently skip on error or timeout
@@ -221,11 +221,11 @@ Return:
         conflicts = self.pending_conflicts.pop(user_id, [])
         return conflicts
 
-    def record_intervention_outcome(self, user_id: str, skip_before: float, skip_after: float) -> bool:
+    async def record_intervention_outcome(self, user_id: str, skip_before: float, skip_after: float) -> bool:
         delta = skip_after - skip_before
         success = delta > 500
-        kernel_manager.update_frustration_threshold(user_id, intervention_successful=success)
-        kernel_manager.save(user_id)
+        await kernel_manager.update_frustration_threshold(user_id, intervention_successful=success)
+        await kernel_manager.save(user_id)
         return success
 
 orchestrator = IBLMOrchestrator()

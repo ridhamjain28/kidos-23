@@ -3,9 +3,14 @@ import time
 import asyncio
 from typing import Dict, Any, List
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 # Supabase Config
-SUPABASE_URL = "https://ckwcamtljqkyrjjrlyil.supabase.co"
-SUPABASE_KEY = "sb_publishable_MPF35ToOnHzf0uHBQ79SIA_41PAcvJK"
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 class SupabaseMetrics:
     def __init__(self, url: str = SUPABASE_URL, key: str = SUPABASE_KEY):

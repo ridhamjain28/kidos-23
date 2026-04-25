@@ -110,3 +110,44 @@ CREATE POLICY "interactions_own" ON interactions
 
 CREATE POLICY "profiles_own"     ON user_profiles
   FOR ALL USING (user_id = auth.uid());
+
+-- ──────────────────────────────────────────────────────────
+-- TABLE: iblm_kernels
+-- Stores the JSON state of the IBLM kernel.
+-- ──────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS iblm_kernels (
+  user_id            UUID PRIMARY KEY,
+  kernel_data        JSONB NOT NULL DEFAULT '{}',
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ──────────────────────────────────────────────────────────
+-- TABLE: behavior_metrics
+-- Stores real-time frustration F(t) and SVI(t) signals.
+-- ──────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS behavior_metrics (
+  id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id            TEXT NOT NULL,
+  engagement_time    NUMERIC,
+  frustration_score  NUMERIC,
+  svi                NUMERIC,
+  curiosity_type     TEXT,
+  timestamp          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_behavior_metrics_user_id ON behavior_metrics(user_id);
+CREATE INDEX IF NOT EXISTS ix_behavior_metrics_timestamp ON behavior_metrics(timestamp DESC);
+
+-- ──────────────────────────────────────────────────────────
+-- TABLE: iblm_sessions
+-- Stores compiled session summaries and memory state.
+-- ──────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS iblm_sessions (
+  id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id            TEXT NOT NULL,
+  summary_data       JSONB NOT NULL DEFAULT '{}',
+  started_at         TIMESTAMPTZ NOT NULL,
+  ended_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_iblm_sessions_user_id ON iblm_sessions(user_id);

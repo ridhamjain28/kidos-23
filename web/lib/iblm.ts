@@ -6,9 +6,6 @@
  * - Cold Memory: The Kernel (Validated permanent rules - kernel.json)
  */
 
-import fs from 'fs';
-import path from 'path';
-
 export interface UserKernel {
   user_id: string;
   expertise_level: 'beginner' | 'intermediate' | 'expert';
@@ -28,30 +25,14 @@ export interface BehavioralSignal {
   scope?: string;
 }
 
-const KERNEL_PATH = path.join(process.cwd(), 'data', 'kernel.json');
-
-/**
- * Ensures the data directory and kernel file exist
- */
-function ensureKernelStore() {
-  const dir = path.dirname(KERNEL_PATH);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  if (!fs.existsSync(KERNEL_PATH)) {
-    fs.writeFileSync(KERNEL_PATH, JSON.stringify({}));
-  }
-}
-
-/**
- * Loads the Cold Memory (The Kernel) for a specific user
- */
 export async function loadKernel(userId: string): Promise<UserKernel> {
-  ensureKernelStore();
-  const data = JSON.parse(fs.readFileSync(KERNEL_PATH, 'utf8'));
-  
-  if (data[userId]) {
-    return data[userId];
+  try {
+    const res = await fetch(`http://localhost:8000/iblm/kernel/${userId}`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.error("Failed to load kernel from backend:", err);
   }
 
   // Default Kernel for new users
@@ -76,13 +57,7 @@ export async function loadKernel(userId: string): Promise<UserKernel> {
  * Saves the Cold Memory (The Kernel)
  */
 export async function saveKernel(kernel: UserKernel) {
-  ensureKernelStore();
-  const data = JSON.parse(fs.readFileSync(KERNEL_PATH, 'utf8'));
-  data[kernel.user_id] = {
-    ...kernel,
-    last_updated: new Date().toISOString()
-  };
-  fs.writeFileSync(KERNEL_PATH, JSON.stringify(data, null, 2));
+  console.warn("Direct kernel save from frontend is deprecated. Let the orchestrator handle rule decay and storage.");
 }
 
 /**
