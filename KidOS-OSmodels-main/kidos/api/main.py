@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -127,6 +127,89 @@ async def speak(body: SpeakRequest):
         return {"status": "success", "message": "Speech complete"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+# ── Cognicards Logic ────────────────────────────────────────────────────────
+
+COGNICARDS_TAGS = ["Tech", "Cooking", "Fitness", "Travel", "Gaming", "Finance", "Art", "Science"]
+
+COGNICARDS_FALLBACK = [
+    {"title": "Quantum Productivity", "body": "Stop multitasking. The quantum observer effect proves that focusing on one task actually changes its outcome.", "tags": ["Tech", "Science"]},
+    {"title": "The Perfect Sear", "body": "A steak only needs to be flipped once. Heat management is the difference between a dinner and a masterpiece.", "tags": ["Cooking", "Science"]},
+    {"title": "Digital Gold", "body": "Bitcoin isn't just money; it's a protocol. Understanding the code is more valuable than tracking the price.", "tags": ["Tech", "Finance"]},
+    {"title": "Abstract Motion", "body": "Great art doesn't capture what a person looks like; it captures how they feel while moving through space.", "tags": ["Art", "Fitness"]},
+    {"title": "Mars Colony", "body": "Life on Mars isn't just about oxygen; it's about building a new culture under a pink sky.", "tags": ["Science", "Travel"]},
+    {"title": "Lo-Fi Beats", "body": "The secret to focus isn't silence; it's the right kind of noise. Low fidelity, high output.", "tags": ["Art", "Gaming"]},
+    {"title": "Budgeting Spells", "body": "Compound interest is the only real magic in the world. Start small, dream big.", "tags": ["Finance", "Science"]},
+    {"title": "Glitch Art", "body": "Beauty can be found in errors. A corrupted file is just a different perspective on reality.", "tags": ["Art", "Tech"]},
+    {"title": "Muscle Memory", "body": "Your body learns while you sleep. The workout is the stimulus; the rest is the growth.", "tags": ["Fitness", "Science"]},
+    {"title": "Speedrunning Life", "body": "Efficiency isn't about rushing; it's about finding the shortest path to joy.", "tags": ["Gaming", "Tech"]},
+]
+
+def get_filtered_fallback(top_tags: list) -> list:
+    """Filter fallback pool based on top tags, then pad with random."""
+    import random
+    filtered = [item for item in COGNICARDS_FALLBACK if any(t in item["tags"] for t in top_tags)]
+    if len(filtered) < 2:
+        others = [item for item in COGNICARDS_FALLBACK if item not in filtered]
+        filtered.extend(random.sample(others, min(len(others), 2 - len(filtered))))
+    return filtered[:2]
+
+@app.post("/cognicards/generate")
+async def cognicards_generate(request: Request):
+    from fastapi.responses import JSONResponse
+    import re
+    import json as json_mod
+    
+    body = await request.json()
+    top_tags = body.get("topTags", ["Tech", "Science"])
+    age = body.get("age", 7)
+    mission_briefing = body.get("mission_briefing", "")
+    
+    try:
+        if age <= 7:
+            age_prompt = "Use simple, playful words. Focus on wonder and discovery. Like explaining to a curious 6-year-old."
+        else:
+            age_prompt = "Use slightly more technical terms but explain them simply. Focus on clear, logical insights. Calibrated for a 10-year-old."
+
+        prompt = (
+            f"You are a kid-friendly content generator. Target Age: {age}.\n"
+            f"IBLM CONTEXT: {mission_briefing}\n"
+            f"INSTRUCTION: {age_prompt}\n"
+            f"TASK: Generate exactly 2 short content items. Each must be exactly 2 lines long.\n"
+            f"TOPICS: {top_tags[0]} and {top_tags[1]}.\n"
+            f"BEHAVIORAL RULES: Follow any constraints in the IBLM CONTEXT strictly.\n"
+            f"OUTPUT FORMAT: Return ONLY a valid JSON array of objects. No intro, no outro, no markdown formatting blocks.\n"
+            f"Example format: [{{'title': '...', 'body': '...', 'tags': [...]}}, ...]"
+        )
+        
+        raw_response = await ollama.generate(prompt=prompt)
+        
+        if not raw_response or len(raw_response) < 20:
+            raise ValueError("Response too short")
+            
+        match = re.search(r'\[.*\]', raw_response, re.DOTALL)
+        if not match:
+            raise ValueError("No JSON array found")
+            
+        items = json_mod.loads(match.group(0))
+        
+        safe_items = []
+        for i, item in enumerate(items[:2]):
+            safe_items.append({
+                "title": item.get("title", "Synthesized Insight"),
+                "body": item.get("body", "Content currently being processed."),
+                "tags": top_tags
+            })
+            
+        if len(safe_items) < 2:
+            raise ValueError("Not enough items generated")
+            
+        return JSONResponse(safe_items)
+        
+    except Exception as e:
+        print(f"Cognicards generation error: {e}")
+        return JSONResponse(get_filtered_fallback(top_tags))
 
 
 # ── Fact Feed API ────────────────────────────────────────────────────────

@@ -91,10 +91,11 @@ class WarmMemory:
         
         # Async push to Supabase
         metrics = {
-            "engagement_time": duration_s,
-            "frustration_score": avg_f,
-            "svi": svi,
-            "curiosity_type": dominant_curiosity
+            "signal_type": "session_summary",
+            "f_score": avg_f,
+            "svi_score": svi,
+            "action_taken": "session_end",
+            "event_type": dominant_curiosity
         }
         asyncio.create_task(supabase_metrics.log_metrics(user_id, metrics))
         

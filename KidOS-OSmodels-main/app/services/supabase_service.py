@@ -39,6 +39,8 @@ class SupabaseMetrics:
         async with httpx.AsyncClient() as client:
             try:
                 resp = await client.post(endpoint, json=payload, headers=self.headers)
+                if resp.status_code != 201 and resp.status_code != 200:
+                    print(f"Supabase Logging Error: {resp.status_code} - {resp.text}")
                 resp.raise_for_status()
             except Exception as e:
                 print(f"Supabase Logging Error: {e}")

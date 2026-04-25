@@ -149,8 +149,8 @@ class IBLMOrchestrator:
             
         await supabase_metrics.log_metrics(user_id, {
             "signal_type": "interaction",
-            "F_score": f_result.F,
-            "SVI_score": svi_result.SVI,
+            "f_score": f_result.F,
+            "svi_score": svi_result.SVI,
             "action_taken": action,
             "event_type": event_type
         })

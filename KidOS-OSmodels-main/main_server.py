@@ -15,10 +15,11 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from app.api.iblm import iblm_router
 
 # ── Config ──────────────────────────────────────────────────────────────────
 OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "qwen2.5"
+OLLAMA_MODEL = "gemma:latest"
 
 COMFYUI_URL = "http://127.0.0.1:8188"
 COMFYUI_PROMPT_EP = f"{COMFYUI_URL}/prompt"
@@ -40,6 +41,9 @@ app = FastAPI(title="AI Chatbot")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+
+# Include IBLM routes
+app.include_router(iblm_router, prefix="/iblm", tags=["IBLM"])
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -171,16 +175,21 @@ async def cognicards_generate(request: Request):
         else:
             age_prompt = "Use slightly more technical terms but explain them simply. Focus on clear, logical insights. Calibrated for a 10-year-old."
 
+        mission_briefing = body.get("mission_briefing", "")
+        
         prompt = (
-            f"Role: Expert Kid-Friendly Educator. Target Age: {age}.\n"
-            f"Task: {age_prompt}\n"
-            f"Generate exactly 2 short, witty content items. Each must be exactly 2 lines long.\n"
-            f"Topics: {top_tags[0]} and {top_tags[1]}.\n"
-            f"No emojis, no hashtags, no fabricated facts.\n"
-            f"Return ONLY a JSON array of objects with 'title', 'body', and 'tags' fields."
+            f"You are a kid-friendly content generator. Target Age: {age}.\n"
+            f"IBLM CONTEXT: {mission_briefing}\n"
+            f"INSTRUCTION: {age_prompt}\n"
+            f"TASK: Generate exactly 2 short content items. Each must be exactly 2 lines long.\n"
+            f"TOPICS: {top_tags[0]} and {top_tags[1]}.\n"
+            f"BEHAVIORAL RULES: Follow any constraints in the IBLM CONTEXT strictly.\n"
+            f"OUTPUT FORMAT: Return ONLY a valid JSON array of objects. No intro, no outro, no markdown formatting blocks.\n"
+            f"Example format: [{{'title': '...', 'body': '...', 'tags': [...]}}, ...]"
         )
         
         raw_response = await query_ollama(prompt)
+        print(f"DEBUG: Raw Ollama Response: {raw_response}")
         
         # Pre-parse validation
         if not raw_response or len(raw_response) < 50:

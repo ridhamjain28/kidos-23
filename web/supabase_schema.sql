@@ -142,12 +142,13 @@ CREATE TABLE IF NOT EXISTS iblm_kernels (
 -- TABLE: iblm_signals
 -- Stores real-time frustration F(t) and SVI(t) signals.
 -- ──────────────────────────────────────────────────────────
+DROP TABLE IF EXISTS iblm_signals;
 CREATE TABLE IF NOT EXISTS iblm_signals (
   id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id            TEXT NOT NULL,
   signal_type        TEXT,
-  F_score            NUMERIC,
-  SVI_score          NUMERIC,
+  f_score            NUMERIC,
+  svi_score          NUMERIC,
   action_taken       TEXT,
   event_type         TEXT,
   timestamp          TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -160,6 +161,7 @@ CREATE INDEX IF NOT EXISTS ix_iblm_signals_timestamp ON iblm_signals(timestamp D
 -- TABLE: iblm_sessions
 -- Stores compiled session summaries and memory state.
 -- ──────────────────────────────────────────────────────────
+DROP TABLE IF EXISTS iblm_sessions;
 CREATE TABLE IF NOT EXISTS iblm_sessions (
   id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id            TEXT NOT NULL,
