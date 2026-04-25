@@ -29,15 +29,32 @@ export default function LabsPage() {
   useEffect(() => {
     setDiscoverPool(FALLBACK_POOL.slice(0, 2));
     
-    // Start IBLM session
     const backendUrl = process.env.NEXT_PUBLIC_IBLM_BACKEND_URL || 'http://localhost:8000';
     const userId = (typeof window !== 'undefined' ? localStorage.getItem('kidos_user_id') : null) || 'demo_user';
     
+    // 1. Start IBLM session
     fetch(`${backendUrl}/iblm/session/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user_id: userId })
     }).catch(() => null);
+
+    // 2. Load kernel tag scores into local profile
+    fetch(`${backendUrl}/iblm/kernel/${userId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(kernel => {
+        if (kernel?.tag_scores) {
+          // Merge IBLM tag scores into local profile state
+          setProfile(prev => {
+            const merged = { ...prev };
+            Object.entries(kernel.tag_scores).forEach(([tag, score]) => {
+              if (tag in merged) merged[tag] = score as number;
+            });
+            return merged;
+          });
+        }
+      })
+      .catch(() => null);
   }, []);
 
   const updateProfile = (tags: LabsTag[], score: number) => {
