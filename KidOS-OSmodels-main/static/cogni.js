@@ -18,7 +18,22 @@ const synthesizeBtn = document.getElementById('synthesize-btn');
 const genLabel = document.getElementById('gen-label');
 
 // ── Initialization ──────────────────────────────────────────────────────────
-function initCogni() {
+async function initCogni() {
+    const userId = "550e8400-e29b-41d4-a716-446655440000";
+    
+    // Sync initial scores from kernel
+    try {
+        const res = await fetch(`/iblm/kernel/${userId}`);
+        if (res.ok) {
+            const kernel = await res.json();
+            if (kernel.tag_scores) {
+                userScores = { ...userScores, ...kernel.tag_scores };
+            }
+        }
+    } catch (err) {
+        console.error("Failed to sync initial kernel scores:", err);
+    }
+
     renderBars();
     renderCards();
 }
@@ -82,37 +97,31 @@ function renderCards() {
 
 // ── Interaction Logic ───────────────────────────────────────────────────────
 function handleSignal(type, tags) {
-    const change = type === 'like' ? 3 : type === 'skip' ? -2 : 1;
-    
-    // Send telemetry to IBLM
-    fetch("/iblm/interact", {
+    const userId = "550e8400-e29b-41d4-a716-446655440000";
+
+    // Send tag signal to IBLM
+    fetch("/iblm/tag-signal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            user_id: "550e8400-e29b-41d4-a716-446655440000", // Valid UUID for Supabase
-            event_type: "content_signal",
-            signals: [
-                { type: 'skip', value: type === 'skip' ? 400 : 5000 },
-                { type: 'tap', value: type === 'like' ? 1.0 : 0.0 }
-            ],
-            content_tags: tags
+            user_id: userId,
+            tags: tags,
+            signal: type,
+            content_id: null
         })
     }).then(res => res.json())
       .then(data => {
-          if (data.reason) {
-              updateIntelligenceFeed(data.reason);
+          if (data.tag_scores) {
+              userScores = { ...userScores, ...data.tag_scores };
+              renderBars();
           }
-      }).catch(err => console.error("IBLM Telemetry Error:", err));
+      }).catch(err => console.error("IBLM Tag Signal Error:", err));
     
     // UI Feedback: disable buttons temporarily
     document.querySelectorAll('.btn-action').forEach(b => b.disabled = true);
     
-    // 300ms Intentional Delay
+    // Visual feedback delay
     setTimeout(() => {
-        tags.forEach(tag => {
-            userScores[tag] = Math.max(-5, Math.min(10, userScores[tag] + change));
-        });
-        renderBars();
         document.querySelectorAll('.btn-action').forEach(b => b.disabled = false);
     }, 300);
 }
@@ -146,9 +155,9 @@ synthesizeBtn.onclick = async () => {
     btnText.style.opacity = '0';
     btnLoader.style.display = 'flex';
     
-    // Determine Top Tags
-    const sorted = [...COG_TAGS].sort((a, b) => userScores[b] - userScores[a]);
-    const topTags = userScores[sorted[0]] > 0 ? [sorted[0], sorted[1]] : ["Tech", "Science"];
+    // Determine Top Tags using synchronized kernel scores
+    const sorted = [...COG_TAGS].sort((a, b) => (userScores[b] || 0) - (userScores[a] || 0));
+    const topTags = (userScores[sorted[0]] || 0) > 0 ? [sorted[0], sorted[1]] : ["Tech", "Science"];
     
     try {
         const start = Date.now();

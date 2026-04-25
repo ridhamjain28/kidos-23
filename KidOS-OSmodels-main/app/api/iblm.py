@@ -35,6 +35,12 @@ class InterventionOutcomeRequest(BaseModel):
     skip_latency_before: float
     skip_latency_after: float
 
+class TagSignalRequest(BaseModel):
+    user_id: str
+    tags: List[str]
+    signal: str  # "like" | "skip" | "view" | "full" | "partial" | "early_skip"
+    content_id: Optional[str] = None
+
 @iblm_router.post("/session/start")
 async def start_session(request: SessionStartRequest):
     await orchestrator.start_session(request.user_id)
@@ -104,6 +110,31 @@ async def interact(request: InteractRequest):
         "gamification_detected": decision.gamification_detected,
         "mission_briefing": decision.mission_briefing,
         "kernel_size_bytes": decision.kernel_size_bytes
+    }
+
+@iblm_router.post("/tag-signal")
+async def tag_signal(request: TagSignalRequest):
+    from app.services.supabase_service import supabase_metrics
+    
+    tag_scores = await kernel_manager.update_tag_scores(
+        request.user_id, request.tags, request.signal
+    )
+    
+    # Log to iblm_signals in Supabase
+    await supabase_metrics.log_metrics(request.user_id, {
+        "signal_type": "tag_signal",
+        "f_score": 0.0,
+        "svi_score": 0.0,
+        "action_taken": request.signal,
+        "event_type": ",".join(request.tags),
+        "tag_deltas": {t: request.signal for t in request.tags}
+    })
+    
+    kernel_summary = await kernel_manager.get_kernel_summary(request.user_id)
+    return {
+        "tag_scores": tag_scores,
+        "curiosity_type": kernel_summary["curiosity_type"],
+        "kernel_size_bytes": kernel_summary["kernel_size_bytes"]
     }
 
 @iblm_router.get("/kernel/{user_id}")

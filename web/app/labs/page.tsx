@@ -63,19 +63,14 @@ export default function LabsPage() {
     const backendUrl = process.env.NEXT_PUBLIC_IBLM_BACKEND_URL || 'http://localhost:8000';
     const userId = (typeof window !== 'undefined' ? localStorage.getItem('kidos_user_id') : null) || 'demo_user';
 
-    fetch(`${backendUrl}/iblm/interact`, {
+    fetch(`${backendUrl}/iblm/tag-signal`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         user_id: userId,
-        event_type: 'content_signal',
-        signals: [
-          { type: 'skip', value: signal === 'skip' ? 400 : 5000 },
-          { type: 'tap', value: signal === 'like' ? 1.0 : 0.0 }
-        ],
-        user_text: null,
-        content_id: itemId,
-        content_tags: tags
+        tags: tags,
+        signal: signal,
+        content_id: itemId
       })
     }).catch(() => null);
 
@@ -98,6 +93,20 @@ export default function LabsPage() {
     const key = signal.toUpperCase().replace(' ', '_') as keyof typeof SCORING.WATCH;
     const score = SCORING.WATCH[key];
     updateProfile(tags, score);
+
+    const backendUrl = process.env.NEXT_PUBLIC_IBLM_BACKEND_URL || 'http://localhost:8000';
+    const userId = (typeof window !== 'undefined' ? localStorage.getItem('kidos_user_id') : null) || 'demo_user';
+
+    fetch(`${backendUrl}/iblm/tag-signal`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userId,
+        tags: tags,
+        signal: signal,
+        content_id: itemId
+      })
+    }).catch(() => null);
   };
 
   // Recommendation Logic for Watch Mode (Unified Brain)
@@ -123,27 +132,28 @@ export default function LabsPage() {
     const { data: { session } } = await supabase.auth.getSession();
     const userId = session?.user?.id || (typeof window !== 'undefined' ? localStorage.getItem('kidos_user_id') : null) || 'demo_user';
 
-    const sortedTags = Object.entries(profile)
-      .sort(([, a], [, b]) => b - a)
+    // 2. Fetch IBLM Kernel for grounding and tag scores
+    const backendUrl = process.env.NEXT_PUBLIC_IBLM_BACKEND_URL || 'http://localhost:8000';
+    const kernelRes = await fetch(`${backendUrl}/iblm/kernel/${userId}`).catch(() => null);
+    const kernel = kernelRes?.ok ? await kernelRes.json() : null;
+    const iblmTagScores = kernel?.tag_scores || {};
+
+    // 3. Use IBLM tag scores for top tags if available, else fallback to local profile
+    const scoresToUse = Object.keys(iblmTagScores).length > 0 ? iblmTagScores : profile;
+    const sortedTags = Object.entries(scoresToUse)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
       .map(([t]) => t as LabsTag);
     
     const top2 = sortedTags.slice(0, 2);
     setGenContext(top2.join(' + '));
 
     try {
-      // 2. Fetch IBLM Kernel from Python Backend
-      const backendUrl = process.env.NEXT_PUBLIC_IBLM_BACKEND_URL || 'http://localhost:8000';
-      const kernelRes = await fetch(`${backendUrl}/iblm/kernel/${userId}`)
-        .catch(() => null);
-
-      const kernel = kernelRes?.ok ? await kernelRes.json() : null;
-
-      // 3. Build Mission Briefing
+      // 4. Build Mission Briefing
       const mission_briefing = kernel ? 
         `Child profile: curiosity_type=${kernel.curiosity_type}, frustration_threshold=${kernel.frustration_threshold}, sessions=${kernel.total_sessions}. Top rules: ${JSON.stringify((kernel.rules || []).slice(0, 3))}. Growth: ${JSON.stringify(kernel.growth_projections || {})}` 
         : '';
 
-      // 4. Call Synthesis API with Mission Briefing
+      // 5. Call Synthesis API with Mission Briefing
       const res = await fetch('/api/labs/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
