@@ -39,16 +39,7 @@ class SupabaseMetrics:
         async with httpx.AsyncClient() as client:
             try:
                 resp = await client.post(endpoint, json=payload, headers=self.headers)
-                if resp.status_code == 404:
-                    alt_endpoint = f"{self.url}/rest/v1/interactions"
-                    await client.post(alt_endpoint, json={
-                        "user_id": user_id,
-                        "action": "metric_log",
-                        "behavioral_metadata": metrics,
-                        "timestamp": payload["timestamp"]
-                    }, headers=self.headers)
-                else:
-                    resp.raise_for_status()
+                resp.raise_for_status()
             except Exception as e:
                 print(f"Supabase Logging Error: {e}")
 
@@ -66,17 +57,6 @@ class SupabaseMetrics:
         async with httpx.AsyncClient() as client:
             try:
                 resp = await client.get(endpoint, params=params, headers=self.headers)
-                if resp.status_code == 404:
-                    # Try fallback to interactions if iblm_signals is missing
-                    alt_endpoint = f"{self.url}/rest/v1/interactions"
-                    params_alt = {
-                        "user_id": f"eq.{user_id}",
-                        "action": "eq.metric_log",
-                        "order": "timestamp.desc",
-                        "limit": limit
-                    }
-                    resp = await client.get(alt_endpoint, params=params_alt, headers=self.headers)
-                
                 resp.raise_for_status()
                 return resp.json()
             except Exception as e:

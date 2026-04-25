@@ -63,6 +63,8 @@ CREATE TABLE IF NOT EXISTS interactions (
 CREATE INDEX IF NOT EXISTS ix_interactions_user_id  ON interactions(user_id);
 CREATE INDEX IF NOT EXISTS ix_interactions_timestamp ON interactions(timestamp DESC);
 
+ALTER TABLE interactions ADD COLUMN IF NOT EXISTS behavioral_metadata JSONB DEFAULT '{}';
+
 -- ──────────────────────────────────────────────────────────
 -- TABLE: user_profiles
 -- The "virtual personality" of each learner.
