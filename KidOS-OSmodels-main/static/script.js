@@ -112,6 +112,7 @@ async function generateFactBatch(count) {
       const data = await res.json();
       if (data.status === "success") {
         replaceWithFactCard(card, data, factCount);
+        sendIblmTelemetry("discovery_batch", [{ type: "engagement", value: 1 }], ["Exploration", "Facts"]);
       } else {
         replaceWithErrorCard(card, data.message || "Spell failed!");
       }
@@ -182,6 +183,7 @@ libraryGenerateBtn.addEventListener("click", async () => {
         <div class="book-cover-label">${data.title}</div>
       `;
       placeholder.addEventListener("click", () => openBook(bookIndex));
+      sendIblmTelemetry("library_creation", [{ type: "engagement", value: 3 }], ["Literacy", "Creation"]);
     } else {
       placeholder.innerHTML = `<div style="padding:10px; font-size:10px; color:#f87171;">Failed to write.</div>`;
     }
@@ -467,6 +469,7 @@ document.querySelectorAll(".game-card").forEach(card => {
     
     // Ask Nexus (IBLM) for a tutorial based on the game
     try {
+      sendIblmTelemetry("game_start", [{ type: "engagement", value: 2 }], ["Gaming", gameType]);
       const prompt = `The user is playing a new game: ${title}. Provide a very short, engaging 2-sentence tutorial or encouragement suitable for a child, acting as Nexus.`;
       const res = await fetch("/chat", {
         method: "POST",
@@ -484,4 +487,14 @@ document.querySelectorAll(".game-card").forEach(card => {
 
 $("#game-player-close")?.addEventListener("click", () => {
     gamePlayer.classList.remove("open");
+});
+
+// ── Session Startup ──────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+    console.log("KidOS Main UI: Starting IBLM Session...");
+    fetch("/iblm/session/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: "550e8400-e29b-41d4-a716-446655440000" })
+    }).catch(() => null);
 });
