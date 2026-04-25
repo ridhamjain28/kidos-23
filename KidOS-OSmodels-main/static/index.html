@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="KidOS Aurora — The Immersive AI OS for Curiosity & Learning" />
+  <title>KidOS Aurora</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <!-- ─── Startup Screen (Gateway) ─────────────────────────────────── -->
+  <div id="startup-screen" class="startup-screen">
+    <div class="startup-content">
+      <div class="startup-icon">✦</div>
+      <h1 style="font-size: 64px; font-weight: 800; margin-bottom: 8px; letter-spacing: -2px;">KidOS</h1>
+      <p style="color: var(--text-muted); font-size: 20px; margin-bottom: 40px;">The OS built for curiosity & learning</p>
+      <button id="lets-go-btn" class="lets-go-btn">Let's Go!</button>
+    </div>
+  </div>
+
+  <!-- ─── Main App Wrapper ─────────────────────────────────────────── -->
+  <div id="app-wrapper" class="app-wrapper hidden">
+    
+    <main id="main" class="main">
+
+      <!-- ══════ DISCOVER VIEW (FACT FEED) ══════ -->
+      <div id="home-view" class="view-panel active">
+        <div style="text-align:center; padding-bottom: 40px;">
+          <h2 style="font-size: 32px; font-weight: 800; margin-bottom: 8px;">✨ Discover</h2>
+          <p style="color: var(--text-muted);">Explore the wonders of the universe</p>
+          <button id="fact-generate-btn" class="btn-generate-facts">Cast New Spells (Generate Facts)</button>
+        </div>
+        
+        <div id="fact-feed-scroll" class="fact-feed-scroll">
+          <div id="fact-feed-empty" class="fact-feed-empty" style="text-align:center; opacity: 0.5; padding-top: 100px;">
+            <div style="font-size: 64px; margin-bottom: 20px;">✦</div>
+            <p>Ready to discover something amazing?</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- ══════ LIBRARY VIEW ══════ -->
+      <div id="library-view" class="view-panel">
+        <div style="text-align:center; padding-bottom: 40px;">
+          <h2 style="font-size: 32px; font-weight: 800; margin-bottom: 8px;">📚 Story Library</h2>
+          <p style="color: var(--text-muted);">Magical tales generated just for you</p>
+          <button id="library-generate-btn" class="btn-generate-facts">Write a New Story</button>
+        </div>
+        <div id="library-shelf" class="library-shelf">
+          <!-- Books appear here -->
+        </div>
+      </div>
+
+      <!-- ══════ NEXUS AI VIEW ══════ -->
+      <div id="nexus-view" class="view-panel nexus-view">
+        <div class="nexus-orb-container">
+          <div class="living-orb">
+            <div style="font-size: 40px;">✦</div>
+          </div>
+          <div style="text-align:center;">
+            <h1 style="font-size: 40px; font-weight: 800; margin-bottom: 8px;">Nexus AI</h1>
+            <p style="color: var(--text-muted);">The soul of KidOS — ready to help</p>
+          </div>
+          <div style="display:flex; gap:16px;">
+            <button class="welcome-card" data-prompt="Tell me a story about a brave robot" style="background:var(--bg-panel); border:1px solid var(--border-glass); padding:16px; border-radius:16px; color:#fff; cursor:pointer;">🤖 Brave Robot Story</button>
+            <button class="welcome-card" data-prompt="Why is the sky blue?" style="background:var(--bg-panel); border:1px solid var(--border-glass); padding:16px; border-radius:16px; color:#fff; cursor:pointer;">🌍 Why is the sky blue?</button>
+          </div>
+        </div>
+
+        <div id="chat-container" class="chat-container">
+          <div id="messages" class="messages" style="display:flex; flex-direction:column; gap:20px; padding:20px;">
+            <!-- Chat messages -->
+          </div>
+        </div>
+
+        <div class="input-wrapper">
+          <form id="chat-form" class="input-bar" autocomplete="off">
+            <input id="user-input" class="input-field" placeholder="Ask Nexus anything..." />
+            <button type="submit" id="send-btn" class="btn-send" title="Send">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ══════ WONDERTV VIEW ══════ -->
+      <div id="wondertv-view" class="view-panel">
+        <div style="text-align:center; padding-bottom: 40px;">
+          <h2 style="font-size: 32px; font-weight: 800; margin-bottom: 8px;">📺 WonderTV</h2>
+          <p style="color: var(--text-muted);">Calming educational journeys</p>
+          <button id="wtv-generate-btn" class="btn-generate-facts">Refresh Channel</button>
+        </div>
+        <div id="wtv-feed" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:24px; padding:20px;">
+          <!-- Videos appear here -->
+        </div>
+      </div>
+
+      <!-- ══════ COGNICARDS VIEW (LABS) ══════ -->
+      <div id="labs-view" class="view-panel">
+        <div style="display: flex; height: 100%; gap: 40px;">
+          
+          <!-- Interaction Stage -->
+          <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <div style="text-align:center; margin-bottom: 40px;">
+              <h2 style="font-size: 32px; font-weight: 800; margin-bottom: 8px;">🧠 CogniLabs</h2>
+              <p style="color: var(--text-muted);">Teach the AI what you love</p>
+              <div id="gen-label" style="margin-top: 10px; font-size: 12px; color: var(--aurora-cyan); font-weight: 700; opacity: 0; transition: opacity 0.5s;">Generated for: ...</div>
+            </div>
+
+            <div id="cogni-cards-container" style="display: flex; gap: 24px; width: 100%; max-width: 900px;">
+              <!-- 2 Cards appear here -->
+            </div>
+
+            <button id="synthesize-btn" class="btn-generate-facts" style="margin-top: 40px; padding: 20px 60px; font-size: 18px; position: relative;">
+              <span id="btn-text">Synthesize Next Duo</span>
+              <div id="btn-loader" style="display:none; position:absolute; inset:0; align-items:center; justify-content:center; background:var(--aurora-cyan); color:var(--bg-space); border-radius:inherit;">
+                Synthesizing...
+              </div>
+            </button>
+          </div>
+
+          <!-- Interest DNA Sidebar -->
+          <div id="dna-sidebar" style="width: 280px; background: var(--bg-panel); backdrop-filter: blur(20px); border: 1px solid var(--border-glass); border-radius: var(--radius-xl); padding: 32px; display: flex; flex-direction: column; gap: 24px;">
+            <h3 style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin-bottom: 10px; border-bottom: 1px solid var(--border-glass); padding-bottom: 10px;">Interest DNA</h3>
+            <div id="tag-bars" style="display:flex; flex-direction:column; gap:20px;">
+              <!-- Bars will be injected here -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ─── Bottom Navigation Dock ─────────────────────────────────── -->
+    <nav id="bottom-nav" class="bottom-nav">
+      <button class="nav-tab active" data-tab="home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Discover</span>
+      </button>
+      <button class="nav-tab" data-tab="library">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>Library</span>
+      </button>
+      <button class="nav-tab" data-tab="wondertv">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span>WonderTV</span>
+      </button>
+      <button class="nav-tab" data-tab="nexus">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Nexus</span>
+      </button>
+      <button class="nav-tab" data-tab="labs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>Labs</span>
+      </button>
+    </nav>
+
+  </div> <!-- End App Wrapper -->
+
+  <!-- ══════ OVERLAYS ══════ -->
+  <div id="book-reader" class="book-reader-overlay">
+    <div class="book-reader-header">
+      <h3 id="book-reader-title" style="font-size: 24px; font-weight: 800;">Book Title</h3>
+      <button id="book-reader-close" style="background:none; border:none; color:#fff; cursor:pointer;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="book-spread" id="book-spread">
+      <div id="book-page-img" class="book-page" style="padding:0;"><img src="" alt="" style="width:100%; height:100%; object-fit:cover;"></div>
+      <div id="book-page-text" class="book-page">Page content goes here...</div>
+    </div>
+    <div style="padding:40px; display:flex; justify-content:center; gap:20px;">
+      <button id="book-prev" class="btn-generate-facts">Previous</button>
+      <button id="book-speak-btn" class="btn-generate-facts">Read Aloud</button>
+      <button id="book-next" class="btn-generate-facts">Next</button>
+    </div>
+  </div>
+
+  <div id="wtv-player" class="wtv-player-overlay">
+    <div class="wtv-player-header">
+      <h3 id="wtv-player-title" style="font-size: 24px; font-weight: 800;">Video Title</h3>
+      <button id="wtv-player-close" style="background:none; border:none; color:#fff; cursor:pointer;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px;">
+      <div id="wtv-screen" style="width:100%; max-width:960px; aspect-ratio:16/9; background:#000; border-radius:24px; overflow:hidden; position:relative; box-shadow:0 40px 100px rgba(0,0,0,0.8);">
+        <img id="wtv-scene-img" src="" alt="" style="width:100%; height:100%; object-fit:cover;">
+        <div id="wtv-subtitle" style="position:absolute; bottom:40px; left:0; right:0; text-align:center; padding:20px 40px; background:rgba(0,0,0,0.6); backdrop-filter:blur(10px); color:#fff; font-size:20px; font-weight:600;"></div>
+        <div id="wtv-loading-screen" class="wtv-loading-screen" style="position:absolute; inset:0; background:rgba(0,0,0,0.8); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px;">
+          <div style="width:40px; height:40px; border:4px solid var(--aurora-cyan); border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite;"></div>
+          <p>Preparing Journey...</p>
+        </div>
+      </div>
+      <div style="width:100%; max-width:960px; margin-top:20px;">
+        <div style="height:6px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden;">
+          <div id="wtv-progress-fill" style="height:100%; width:0%; background:var(--aurora-cyan); transition:width 0.5s;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/script.js"></script>
+  <script src="/static/cogni.js"></script>
+</body>
+</html>

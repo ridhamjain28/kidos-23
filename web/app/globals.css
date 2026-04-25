@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-on-surface antialiased overflow-x-hidden relative pb-32;
+    font-family: var(--font-lexend), sans-serif;
+    background: linear-gradient(135deg, #e6f5ff 0%, #fff2d4 100%);
+    min-height: 100vh;
+  }
+  h1, h2, h3, h4, h5, h6, .font-headline {
+    font-family: var(--font-jakarta), sans-serif;
+  }
+}
+
+@layer utilities {
+  .shadow-kid {
+    box-shadow: 0 8px 0 rgba(0, 0, 0, 0.05), 0 15px 30px rgba(0, 0, 0, 0.03);
+  }
+  .animate-pop-in {
+    animation: pop-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+  .animate-slide-up {
+    animation: slide-up 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+  .animate-bounce-slow {
+    animation: bounce-slow 3s ease-in-out infinite;
+  }
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0.9); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes slide-up {
+  0% { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
