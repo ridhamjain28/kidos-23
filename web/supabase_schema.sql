@@ -100,16 +100,21 @@ ALTER TABLE interactions    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_profiles   ENABLE ROW LEVEL SECURITY;
 
 -- Public read on content_items (they're not personal)
+DROP POLICY IF EXISTS "content_items_public_read" ON content_items;
 CREATE POLICY "content_items_public_read" ON content_items
   FOR SELECT USING (true);
 
 -- Users can read/insert their own rows
+DROP POLICY IF EXISTS "users_own_read" ON users;
 CREATE POLICY "users_own_read"   ON users FOR SELECT USING (id = auth.uid());
+DROP POLICY IF EXISTS "users_own_insert" ON users;
 CREATE POLICY "users_own_insert" ON users FOR INSERT WITH CHECK (true); -- open for signup
 
+DROP POLICY IF EXISTS "interactions_own" ON interactions;
 CREATE POLICY "interactions_own" ON interactions
   FOR ALL USING (user_id = auth.uid());
 
+DROP POLICY IF EXISTS "profiles_own" ON user_profiles;
 CREATE POLICY "profiles_own"     ON user_profiles
   FOR ALL USING (user_id = auth.uid());
 
