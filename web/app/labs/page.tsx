@@ -25,9 +25,19 @@ export default function LabsPage() {
   const [synthesisLoading, setSynthesisLoading] = useState(false);
   const [genContext, setGenContext] = useState<string | null>(null);
 
-  // Initialize with some fallback data
+  // Initialize with some fallback data and start IBLM session
   useEffect(() => {
     setDiscoverPool(FALLBACK_POOL.slice(0, 2));
+    
+    // Start IBLM session
+    const backendUrl = process.env.NEXT_PUBLIC_IBLM_BACKEND_URL || 'http://localhost:8000';
+    const userId = (typeof window !== 'undefined' ? localStorage.getItem('kidos_user_id') : null) || 'demo_user';
+    
+    fetch(`${backendUrl}/iblm/session/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId })
+    }).catch(() => null);
   }, []);
 
   const updateProfile = (tags: LabsTag[], score: number) => {
@@ -49,6 +59,26 @@ export default function LabsPage() {
     const score = SCORING.DISCOVER[signal.toUpperCase() as keyof typeof SCORING.DISCOVER];
     updateProfile(tags, score);
     
+    // Send IBLM interaction telemetry
+    const backendUrl = process.env.NEXT_PUBLIC_IBLM_BACKEND_URL || 'http://localhost:8000';
+    const userId = (typeof window !== 'undefined' ? localStorage.getItem('kidos_user_id') : null) || 'demo_user';
+
+    fetch(`${backendUrl}/iblm/interact`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: userId,
+        event_type: 'content_signal',
+        signals: [
+          { type: 'skip', value: signal === 'skip' ? 400 : 5000 },
+          { type: 'tap', value: signal === 'like' ? 1.0 : 0.0 }
+        ],
+        user_text: null,
+        content_id: itemId,
+        content_tags: tags
+      })
+    }).catch(() => null);
+
     // Rotate items in discover pool with a slight delay
     setTimeout(() => {
       setDiscoverPool((prev) => {
