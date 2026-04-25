@@ -10,15 +10,7 @@ const form = $("#chat-form");
 const input = $("#user-input");
 const sendBtn = $("#send-btn");
 
-// ── App Startup ──────────────────────────────────────────────────────────
-const startupScreen = $("#startup-screen");
-const appWrapper = $("#app-wrapper");
-const letsGoBtn = $("#lets-go-btn");
-
-letsGoBtn.addEventListener("click", () => {
-  startupScreen.classList.add("hidden");
-  appWrapper.classList.remove("hidden");
-});
+// ── App Startup removed ──────────────────────────────────────────────────
 
 // ── Tab Switching ────────────────────────────────────────────────────────
 const tabButtons = document.querySelectorAll(".nav-tab");
@@ -30,6 +22,7 @@ const TAB_MAP = {
   "wondertv": "wondertv-view",
   "nexus": "nexus-view",
   "labs": "labs-view",
+  "games": "games-view",
 };
 
 tabButtons.forEach((btn) => {
@@ -265,11 +258,55 @@ wtvGenerateBtn.addEventListener("click", async () => {
   wtvGenerateBtn.disabled = false;
   wtvGenerateBtn.innerHTML = "Refresh Channel";
 });
+// --- IBLM Telemetry Helper ---
+function sendIblmTelemetry(eventType, signals, tags) {
+    fetch("/iblm/interact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            user_id: "550e8400-e29b-41d4-a716-446655440000", // Valid UUID for Supabase
+            event_type: eventType,
+            signals: signals,
+            content_tags: tags
+        })
+    }).catch(err => console.error("IBLM Telemetry Error:", err));
+}
 
-async function playVideo(title, description) {
+let isPaused = false;
+let isSkipped = false;
+let currentSpeed = 1.0;
+let currentVideoTags = ["Exploration"]; // Default tag
+
+$("#wtv-play-pause-btn")?.addEventListener("click", () => {
+  isPaused = !isPaused;
+  $("#wtv-play-pause-btn").innerHTML = isPaused ? "▶️ Play" : "⏸️ Pause";
+  sendIblmTelemetry(isPaused ? "pause" : "play", [{ type: "engagement", value: isPaused ? -0.5 : 1 }], currentVideoTags);
+});
+
+$("#wtv-skip-btn")?.addEventListener("click", () => {
+  isSkipped = true;
+  sendIblmTelemetry("skip", [{ type: "frustration", value: 2 }, { type: "engagement", value: -1 }], currentVideoTags);
+});
+
+$("#wtv-speed-btn")?.addEventListener("click", () => {
+  if (currentSpeed === 1.0) currentSpeed = 1.5;
+  else if (currentSpeed === 1.5) currentSpeed = 2.0;
+  else currentSpeed = 1.0;
+  $("#wtv-speed-btn").innerHTML = `⚡ Speed: ${currentSpeed}x`;
+  sendIblmTelemetry("speed_change", [{ type: "engagement", value: 1 }], currentVideoTags);
+});
+
+async function playVideo(title, description, tags = ["Exploration"]) {
+  currentVideoTags = tags; // Update global state for telemetry
   wtvPlayer.classList.add("open");
   $("#wtv-player-title").innerText = title;
   $("#wtv-loading-screen").style.display = "flex";
+  $("#wtv-recommendations").style.display = "none";
+  isPaused = false;
+  isSkipped = false;
+  $("#wtv-play-pause-btn").innerHTML = "⏸️ Pause";
+  
+  sendIblmTelemetry("watch", [{ type: "engagement", value: 2 }], currentVideoTags);
   
   try {
     const res = await fetch("/wondertv/watch", {
@@ -282,17 +319,65 @@ async function playVideo(title, description) {
     
     for (let i = 0; i < data.scenes.length; i++) {
        if (!wtvPlayer.classList.contains("open")) break;
+       
+       while(isPaused) {
+           await new Promise(r => setTimeout(r, 100));
+           if (!wtvPlayer.classList.contains("open")) return;
+       }
+       if(isSkipped) {
+           isSkipped = false;
+           continue;
+       }
+
        const scene = data.scenes[i];
        wtvSceneImg.src = scene.image;
        wtvSubtitle.innerText = scene.narration;
        wtvProgress.style.width = `${((i+1)/data.scenes.length)*100}%`;
+       
+       // In a real app we'd speed up TTS, but here we just wait less
        await speakText(scene.narration);
-       await new Promise(r => setTimeout(r, 1000));
+       await new Promise(r => setTimeout(r, 1000 / currentSpeed));
+    }
+    
+    // Show Recommendations when finished
+    if (wtvPlayer.classList.contains("open")) {
+        showRecommendations(tags);
     }
   } catch (err) {}
 }
 
-$("#wtv-player-close").addEventListener("click", () => wtvPlayer.classList.remove("open"));
+function showRecommendations(tags) {
+    $("#wtv-recommendations").style.display = "block";
+    const recFeed = $("#wtv-rec-feed");
+    recFeed.innerHTML = "";
+    
+    const recommendations = [
+        {title: "Mysteries of " + tags[0], thumb: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400&q=80"},
+        {title: "Deep Dive: " + tags[0], thumb: "https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?w=400&q=80"},
+        {title: "Next Adventure", thumb: "https://images.unsplash.com/photo-1502134249126-9f3755a50d78?w=400&q=80"}
+    ];
+    
+    recommendations.forEach(rec => {
+        const card = document.createElement("div");
+        card.style.background = "rgba(255,255,255,0.1)";
+        card.style.borderRadius = "12px";
+        card.style.overflow = "hidden";
+        card.style.cursor = "pointer";
+        card.innerHTML = `
+          <img src="${rec.thumb}" style="width:100%; height:120px; object-fit:cover;">
+          <div style="padding:12px; font-weight:700; color:#fff;">${rec.title}</div>
+        `;
+        card.addEventListener("click", () => {
+            playVideo(rec.title, "Recommended content", tags);
+        });
+        recFeed.appendChild(card);
+    });
+}
+
+$("#wtv-player-close").addEventListener("click", () => {
+    wtvPlayer.classList.remove("open");
+    isPaused = false;
+});
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 async function speakText(text, btn = null) {
@@ -339,3 +424,64 @@ function appendImage(src, caption) {
   messagesEl.appendChild(msg);
   chatContainer.scrollTop = chatContainer.scrollHeight;
 }
+
+// ── Games Logic ──────────────────────────────────────────────────────────
+const gamePlayer = $("#game-player");
+const gamePlayerTitle = $("#game-player-title");
+const gameContent = $("#game-content");
+const gameTutorialBox = $("#game-tutorial-box");
+const gameTutorialText = $("#game-tutorial-text");
+
+document.querySelectorAll(".game-card").forEach(card => {
+  card.addEventListener("click", async () => {
+    const gameType = card.dataset.game;
+    const title = card.querySelector("h3").innerText;
+    
+    gamePlayerTitle.innerText = title;
+    gamePlayer.classList.add("open");
+    
+    gameTutorialBox.style.display = "block";
+    gameTutorialText.innerText = "Nexus is preparing your game and tutorial...";
+    
+    // Render basic mock game board
+    if (gameType === "chess") {
+      gameContent.innerHTML = `
+        <div style="display:grid; grid-template-columns:repeat(8, 1fr); width:100%; max-width:400px; aspect-ratio:1/1; border:4px solid var(--text-primary);">
+          ${Array(64).fill(0).map((_, i) => {
+            const row = Math.floor(i / 8);
+            const col = i % 8;
+            const isBlack = (row + col) % 2 === 1;
+            return `<div style="background:${isBlack ? '#4b5563' : '#e5e7eb'};"></div>`;
+          }).join('')}
+        </div>
+        <div style="position:absolute; top:20px; left:20px; font-size:24px; font-weight:800; color:var(--text-primary);">♟️ Nexus Chess</div>
+      `;
+    } else {
+      gameContent.innerHTML = `
+        <div style="text-align:center; color:var(--text-primary);">
+           <div style="font-size:80px; margin-bottom:20px;">${card.querySelector('div').innerText}</div>
+           <h2>Loading ${title}...</h2>
+        </div>
+      `;
+    }
+    
+    // Ask Nexus (IBLM) for a tutorial based on the game
+    try {
+      const prompt = `The user is playing a new game: ${title}. Provide a very short, engaging 2-sentence tutorial or encouragement suitable for a child, acting as Nexus.`;
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: prompt }),
+      });
+      const data = await res.json();
+      gameTutorialText.innerText = data.content;
+      speakText(data.content);
+    } catch (err) {
+      gameTutorialText.innerText = "Have fun playing " + title + "!";
+    }
+  });
+});
+
+$("#game-player-close")?.addEventListener("click", () => {
+    gamePlayer.classList.remove("open");
+});

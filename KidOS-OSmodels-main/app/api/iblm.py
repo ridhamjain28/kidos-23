@@ -75,12 +75,14 @@ async def interact(request: InteractRequest):
             # Positive signal (long dwell, like) = higher engagement
             # Negative signal (skip, abandon) = higher frustration
             skip_signals = [s for s in raw_signals_dicts if s["signal_type"] == "skip" and s["value"] < 2000]
-            if skip_signals or request.event_type in ["too_hard", "abandon"]:
+            if skip_signals or request.event_type in ["too_hard", "abandon", "skip"]:
                 entry["frustration"] = min(1.0, entry.get("frustration", 0) + 0.1)
                 entry["engagement"] = max(0.0, entry.get("engagement", 0.5) - 0.05)
+            elif request.event_type in ["like", "more_like_this", "finish"]:
+                entry["engagement"] = min(1.0, entry.get("engagement", 0.5) + 0.1)
+                entry["frustration"] = max(0.0, entry.get("frustration", 0) - 0.05)
             else:
-                entry["engagement"] = min(1.0, entry.get("engagement", 0.5) + 0.05)
-                entry["frustration"] = max(0.0, entry.get("frustration", 0) - 0.02)
+                entry["engagement"] = min(1.0, entry.get("engagement", 0.5) + 0.02)
             
             existing[tag] = entry
         
@@ -100,9 +102,20 @@ async def interact(request: InteractRequest):
             content_tags=request.content_tags
         )
     
+    # Build a more descriptive reason for the UI
+    tag_reason = ""
+    if request.content_tags:
+        tags_str = ", ".join(request.content_tags)
+        if request.event_type == "like":
+            tag_reason = f" | Engagement boosted for: {tags_str}"
+        elif request.event_type == "skip":
+            tag_reason = f" | Frustration increased for: {tags_str}"
+        else:
+            tag_reason = f" | Interactions tracked for: {tags_str}"
+
     return {
         "action": decision.action,
-        "reason": decision.reason,
+        "reason": f"{decision.reason}{tag_reason}",
         "F_score": decision.F_score,
         "SVI_score": decision.SVI_score,
         "gamification_detected": decision.gamification_detected,

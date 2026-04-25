@@ -56,6 +56,16 @@ tts = tool_registry.get_tool('tts')
 # The KidOS Executor kernel
 executor = Executor(ollama=ollama, comfyui=comfyui, tts=tts)
 
+@app.on_event("startup")
+async def seed_mock_user():
+    """Ensure the mock user exists in Supabase on startup."""
+    from app.services.supabase_service import supabase_metrics
+    mock_id = "550e8400-e29b-41d4-a716-446655440000"
+    print(f"KidOS Startup: Seeding mock user {mock_id}...")
+    await supabase_metrics.upsert_kernel_tag_scores(mock_id, {
+        "Tech": {"engagement": 0.5, "frustration": 0.0},
+        "Science": {"engagement": 0.5, "frustration": 0.0}
+    })
 
 # ── Routes ───────────────────────────────────────────────────────────────
 
@@ -186,6 +196,13 @@ async def cognicards_generate(request: Request):
                     tag_hints.append(f"{tag}: neutral — standard depth")
         if tag_hints:
             tag_context = "Tag Intelligence: " + " | ".join(tag_hints) + "."
+            
+        # --- Fetch relevant memories to ground the content ---
+        from kidos.memory.memory_engine import memory_engine
+        query = f"Interests: {' '.join(top_tags)}"
+        memories = await memory_engine.recall(query, n=3)
+        if memories:
+            tag_context += f" | Past Memories: {memories}"
     
     try:
         if age <= 7:

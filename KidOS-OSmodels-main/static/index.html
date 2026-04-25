@@ -9,18 +9,8 @@
 </head>
 <body>
 
-  <!-- ─── Startup Screen (Gateway) ─────────────────────────────────── -->
-  <div id="startup-screen" class="startup-screen">
-    <div class="startup-content">
-      <div class="startup-icon">✦</div>
-      <h1 style="font-size: 64px; font-weight: 800; margin-bottom: 8px; letter-spacing: -2px;">KidOS</h1>
-      <p style="color: var(--text-muted); font-size: 20px; margin-bottom: 40px;">The OS built for curiosity & learning</p>
-      <button id="lets-go-btn" class="lets-go-btn">Let's Go!</button>
-    </div>
-  </div>
-
   <!-- ─── Main App Wrapper ─────────────────────────────────────────── -->
-  <div id="app-wrapper" class="app-wrapper hidden">
+  <div id="app-wrapper" class="app-wrapper">
     
     <main id="main" class="main">
 
@@ -131,6 +121,41 @@
         </div>
       </div>
 
+      <!-- ══════ GAMES VIEW ══════ -->
+      <div id="games-view" class="view-panel">
+        <div style="text-align:center; padding-bottom: 40px;">
+          <h2 style="font-size: 32px; font-weight: 800; margin-bottom: 8px;">🎮 Play & Learn</h2>
+          <p style="color: var(--text-muted);">Games tailored to your skills and IBLM scores</p>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:24px; padding:20px;">
+          
+          <div class="game-card" data-game="numbers" style="background:linear-gradient(135deg, #FF6B6B, #FF8E53); border-radius:16px; padding:24px; color:white; cursor:pointer; transition:transform 0.2s;">
+            <div style="font-size:48px; margin-bottom:16px;">🔢</div>
+            <h3 style="font-size:20px; font-weight:800; margin-bottom:8px;">Number Ninja</h3>
+            <p style="font-size:14px; opacity:0.9;">Master math and logic puzzles</p>
+          </div>
+
+          <div class="game-card" data-game="words" style="background:linear-gradient(135deg, #4facfe, #00f2fe); border-radius:16px; padding:24px; color:white; cursor:pointer; transition:transform 0.2s;">
+            <div style="font-size:48px; margin-bottom:16px;">📝</div>
+            <h3 style="font-size:20px; font-weight:800; margin-bottom:8px;">Word Weaver</h3>
+            <p style="font-size:14px; opacity:0.9;">Expand your vocabulary</p>
+          </div>
+
+          <div class="game-card" data-game="reflexes" style="background:linear-gradient(135deg, #43e97b, #38f9d7); border-radius:16px; padding:24px; color:white; cursor:pointer; transition:transform 0.2s;">
+            <div style="font-size:48px; margin-bottom:16px;">⚡</div>
+            <h3 style="font-size:20px; font-weight:800; margin-bottom:8px;">Reflex Dash</h3>
+            <p style="font-size:14px; opacity:0.9;">Hand-eye coordination challenges</p>
+          </div>
+
+          <div class="game-card" data-game="chess" style="background:linear-gradient(135deg, #667eea, #764ba2); border-radius:16px; padding:24px; color:white; cursor:pointer; transition:transform 0.2s;">
+            <div style="font-size:48px; margin-bottom:16px;">♟️</div>
+            <h3 style="font-size:20px; font-weight:800; margin-bottom:8px;">Nexus Chess</h3>
+            <p style="font-size:14px; opacity:0.9;">Learn strategy with AI guidance</p>
+          </div>
+
+        </div>
+      </div>
+
     </main>
 
     <!-- ─── Bottom Navigation Dock ─────────────────────────────────── -->
@@ -155,9 +180,33 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
         <span>Labs</span>
       </button>
+      <button class="nav-tab" data-tab="games">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2" ry="2"/><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/></svg>
+        <span>Games</span>
+      </button>
     </nav>
 
   </div> <!-- End App Wrapper -->
+
+  <!-- ══════ GAME OVERLAY ══════ -->
+  <div id="game-player" class="wtv-player-overlay">
+    <div class="wtv-player-header">
+      <h3 id="game-player-title" style="font-size: 24px; font-weight: 800;">Game Title</h3>
+      <button id="game-player-close" style="background:none; border:none; color:#fff; cursor:pointer;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px;">
+      <div id="game-screen" style="width:100%; max-width:800px; aspect-ratio:1/1; background:var(--bg-panel); border:1px solid var(--border-glass); border-radius:24px; overflow:hidden; position:relative; box-shadow:0 40px 100px rgba(0,0,0,0.8); display:flex; flex-direction:column; align-items:center; justify-content:center; padding: 20px;">
+        <!-- Dynamic Game Content Injected Here -->
+        <div id="game-content" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 64px;">
+           <!-- Board/UI goes here -->
+        </div>
+      </div>
+      <div id="game-tutorial-box" style="width:100%; max-width:800px; margin-top:20px; background:rgba(255,255,255,0.05); padding:20px; border-radius:12px; border:1px solid var(--border-glass); display:none;">
+         <h4 style="color:var(--aurora-cyan); margin-bottom:8px;">🤖 Nexus IBLM Tutorial</h4>
+         <p id="game-tutorial-text" style="color:#fff; font-size:16px;">Loading AI guidance...</p>
+      </div>
+    </div>
+  </div>
 
   <!-- ══════ OVERLAYS ══════ -->
   <div id="book-reader" class="book-reader-overlay">
@@ -191,8 +240,19 @@
         </div>
       </div>
       <div style="width:100%; max-width:960px; margin-top:20px;">
+        <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 15px;">
+          <button id="wtv-play-pause-btn" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:#fff; padding:10px 20px; border-radius:8px; cursor:pointer;">⏸️ Pause</button>
+          <button id="wtv-skip-btn" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:#fff; padding:10px 20px; border-radius:8px; cursor:pointer;">⏭️ Skip</button>
+          <button id="wtv-speed-btn" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:#fff; padding:10px 20px; border-radius:8px; cursor:pointer;">⚡ Speed: 1x</button>
+        </div>
         <div style="height:6px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden;">
           <div id="wtv-progress-fill" style="height:100%; width:0%; background:var(--aurora-cyan); transition:width 0.5s;"></div>
+        </div>
+      </div>
+      
+      <div id="wtv-recommendations" style="width:100%; max-width:960px; margin-top:40px; display:none;">
+        <h4 style="color:#fff; font-size:20px; font-weight:800; margin-bottom:16px;">✨ Recommended for You</h4>
+        <div id="wtv-rec-feed" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:16px;">
         </div>
       </div>
     </div>

@@ -44,7 +44,7 @@ class SupabaseMetrics:
         Upserts the tag_scores JSONB column in iblm_kernels.
         tag_scores format: {"Space": {"engagement": 0.7, "frustration": 0.2}, ...}
         """
-        endpoint = f"{self.url}/rest/v1/iblm_kernels"
+        endpoint = f"{self.url}/rest/v1/iblm_kernels?on_conflict=user_id"
         headers = {**self.headers, "Prefer": "resolution=merge-duplicates,return=minimal"}
         payload = {
             "user_id": user_id,

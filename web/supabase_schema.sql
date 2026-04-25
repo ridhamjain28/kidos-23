@@ -122,7 +122,7 @@ CREATE POLICY "profiles_own"     ON user_profiles
 -- TABLE: iblm_kernels
 -- Stores the state of the IBLM kernel with explicit columns.
 -- ──────────────────────────────────────────────────────────
-DROP TABLE IF EXISTS iblm_kernels;
+DROP TABLE IF EXISTS iblm_kernels CASCADE;
 CREATE TABLE IF NOT EXISTS iblm_kernels (
   user_id            UUID PRIMARY KEY,
   curiosity_type     TEXT DEFAULT 'exploratory',
@@ -149,7 +149,7 @@ CREATE POLICY "Public All Kernels" ON iblm_kernels FOR ALL USING (true) WITH CHE
 -- TABLE: iblm_signals
 -- Stores real-time frustration F(t) and SVI(t) signals.
 -- ──────────────────────────────────────────────────────────
-DROP TABLE IF EXISTS iblm_signals;
+DROP TABLE IF EXISTS iblm_signals CASCADE;
 CREATE TABLE IF NOT EXISTS iblm_signals (
   id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id            UUID NOT NULL REFERENCES iblm_kernels(user_id) ON DELETE CASCADE,
@@ -176,7 +176,7 @@ CREATE POLICY "Public Select Signals" ON iblm_signals FOR SELECT USING (true);
 -- TABLE: iblm_sessions
 -- Stores compiled session summaries and memory state.
 -- ──────────────────────────────────────────────────────────
-DROP TABLE IF EXISTS iblm_sessions;
+DROP TABLE IF EXISTS iblm_sessions CASCADE;
 CREATE TABLE IF NOT EXISTS iblm_sessions (
   id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id            UUID NOT NULL REFERENCES iblm_kernels(user_id) ON DELETE CASCADE,

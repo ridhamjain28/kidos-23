@@ -84,6 +84,23 @@ function renderCards() {
 function handleSignal(type, tags) {
     const change = type === 'like' ? 3 : type === 'skip' ? -2 : 1;
     
+    // Send telemetry to IBLM
+    fetch("/iblm/interact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            user_id: "550e8400-e29b-41d4-a716-446655440000", // Valid UUID for Supabase
+            event_type: type,
+            signals: [{ type: "engagement", value: change }],
+            content_tags: tags
+        })
+    }).then(res => res.json())
+      .then(data => {
+          if (data.reason) {
+              updateIntelligenceFeed(data.reason);
+          }
+      }).catch(err => console.error("IBLM Telemetry Error:", err));
+    
     // UI Feedback: disable buttons temporarily
     document.querySelectorAll('.btn-action').forEach(b => b.disabled = true);
     
@@ -95,6 +112,25 @@ function handleSignal(type, tags) {
         renderBars();
         document.querySelectorAll('.btn-action').forEach(b => b.disabled = false);
     }, 300);
+}
+
+function updateIntelligenceFeed(reason) {
+    let feed = document.getElementById('nexus-intel-feed');
+    if (!feed) {
+        feed = document.createElement('div');
+        feed.id = 'nexus-intel-feed';
+        feed.style.marginTop = '24px';
+        feed.style.padding = '16px';
+        feed.style.background = 'rgba(168, 85, 247, 0.1)';
+        feed.style.border = '1px solid var(--aurora-purple)';
+        feed.style.borderRadius = '12px';
+        feed.style.fontSize = '13px';
+        feed.style.color = 'var(--text-primary)';
+        feed.innerHTML = `<div style="font-weight:800; color:var(--aurora-purple); margin-bottom:4px;">🧠 NEXUS INTELLIGENCE:</div><div id="intel-content"></div>`;
+        document.getElementById('dna-sidebar').appendChild(feed);
+    }
+    const content = feed.querySelector('#intel-content');
+    content.innerText = reason;
 }
 
 // ── Synthesis Logic ─────────────────────────────────────────────────────────

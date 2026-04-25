@@ -36,7 +36,9 @@ class MemoryEngine:
     """
 
     def __init__(self):
-        self.client = chromadb.Client()
+        import os
+        db_path = os.path.join(os.getcwd(), "chroma_db")
+        self.client = chromadb.PersistentClient(path=db_path)
         self.collection = self.client.get_or_create_collection(
             name=COLLECTION_NAME,
             metadata={"hnsw:space": "cosine"},  # cosine similarity
@@ -103,6 +105,22 @@ class MemoryEngine:
             metadatas=[meta],
             ids=[memory_id],
         )
+
+        # Log memory event to Supabase
+        try:
+            from app.services.supabase_service import supabase_metrics
+            import asyncio
+            asyncio.create_task(supabase_metrics.log_metrics(
+                user_id="550e8400-e29b-41d4-a716-446655440000", # Default mock user
+                metrics={
+                    "signal_type": "memory_store",
+                    "action_taken": f"stored_{memory_id}",
+                    "event_type": metadata.get("source", "kidos") if metadata else "kidos"
+                },
+                content_tags=[text[:20]] # Use snippet as tag for visibility
+            ))
+        except Exception:
+            pass
 
         logger.info(
             f"Stored memory [{memory_id}]: \"{text[:60]}...\" "

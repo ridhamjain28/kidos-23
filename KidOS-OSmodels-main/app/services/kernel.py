@@ -60,7 +60,7 @@ class KernelManager:
         await self._upsert_to_supabase(kernel)
 
     async def _upsert_to_supabase(self, kernel: IBLMKernel):
-        endpoint = f"{supabase_metrics.url}/rest/v1/iblm_kernels"
+        endpoint = f"{supabase_metrics.url}/rest/v1/iblm_kernels?on_conflict=user_id"
         
         payload = asdict(kernel)
         payload["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
