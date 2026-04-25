@@ -147,6 +147,11 @@ class KernelManager:
     async def get_kernel_summary(self, user_id):
         kernel = await self.get(user_id)
         summary = asdict(kernel)
+        
+        # Add top 3 rules for frontend convenience
+        top_rules = sorted(kernel.rules, key=lambda r: r.get('weight', 0), reverse=True)[:3]
+        summary["top_rules"] = top_rules
+        
         summary["kernel_size_bytes"] = len(json.dumps(summary).encode())
         return summary
 
