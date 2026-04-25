@@ -278,11 +278,25 @@ let isPaused = false;
 let isSkipped = false;
 let currentSpeed = 1.0;
 let currentVideoTags = ["Exploration"]; // Default tag
+let currentSceneIndex = 0;
+let sceneJumpTriggered = false;
 
 $("#wtv-play-pause-btn")?.addEventListener("click", () => {
   isPaused = !isPaused;
   $("#wtv-play-pause-btn").innerHTML = isPaused ? "▶️ Play" : "⏸️ Pause";
   sendIblmTelemetry(isPaused ? "pause" : "play", [{ type: "engagement", value: isPaused ? -0.5 : 1 }], currentVideoTags);
+});
+
+$("#wtv-back-btn")?.addEventListener("click", () => {
+  currentSceneIndex = Math.max(0, currentSceneIndex - 1);
+  sceneJumpTriggered = true;
+  sendIblmTelemetry("back_5s", [{ type: "engagement", value: 0.5 }], currentVideoTags);
+});
+
+$("#wtv-forward-btn")?.addEventListener("click", () => {
+  currentSceneIndex = currentSceneIndex + 1; // Handled by loop bounds
+  sceneJumpTriggered = true;
+  sendIblmTelemetry("forward_5s", [{ type: "engagement", value: 0.5 }], currentVideoTags);
 });
 
 $("#wtv-skip-btn")?.addEventListener("click", () => {
@@ -319,8 +333,11 @@ async function playVideo(title, description, tags = ["Exploration"]) {
     const data = await res.json();
     $("#wtv-loading-screen").style.display = "none";
     
-    for (let i = 0; i < data.scenes.length; i++) {
+    currentSceneIndex = 0;
+    while (currentSceneIndex < data.scenes.length) {
        if (!wtvPlayer.classList.contains("open")) break;
+       
+       sceneJumpTriggered = false;
        
        while(isPaused) {
            await new Promise(r => setTimeout(r, 100));
@@ -328,17 +345,32 @@ async function playVideo(title, description, tags = ["Exploration"]) {
        }
        if(isSkipped) {
            isSkipped = false;
-           continue;
+           break; 
        }
 
-       const scene = data.scenes[i];
+       const scene = data.scenes[currentSceneIndex];
        wtvSceneImg.src = scene.image;
        wtvSubtitle.innerText = scene.narration;
-       wtvProgress.style.width = `${((i+1)/data.scenes.length)*100}%`;
+       wtvProgress.style.width = `${((currentSceneIndex+1)/data.scenes.length)*100}%`;
        
-       // In a real app we'd speed up TTS, but here we just wait less
+       // Speak and Wait
        await speakText(scene.narration);
-       await new Promise(r => setTimeout(r, 1000 / currentSpeed));
+       
+       // Scene Duration: wait 5s normally, or until jump/skip
+       const waitTime = 5000 / currentSpeed;
+       const startWait = Date.now();
+       while (Date.now() - startWait < waitTime) {
+           if (sceneJumpTriggered || isSkipped || isPaused || !wtvPlayer.classList.contains("open")) break;
+           await new Promise(r => setTimeout(r, 100));
+       }
+       
+       if (sceneJumpTriggered) {
+           // currentSceneIndex already updated by button listeners
+           continue;
+       }
+       if (isSkipped) break;
+
+       currentSceneIndex++;
     }
     
     // Show Recommendations when finished
